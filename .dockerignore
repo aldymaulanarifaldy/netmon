@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.env
+docker-compose.yml
+docker-compose.override.yml
+backend/node_modules
+backend/dist
+frontend/node_modules
+frontend/dist
+coverage
+*.log
+.vscode
+.idea
