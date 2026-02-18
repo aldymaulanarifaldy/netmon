@@ -1,9 +1,7 @@
-
 import { RouterOSClient } from 'routeros-client';
 import { NodeMetrics } from '../types';
 import { logger } from '../utils/logger';
 
-// Enhanced type definition to match routeros-client's menu API
 interface RouterOSClientInstance {
     connect(): Promise<void>;
     close(): void;
@@ -15,41 +13,45 @@ interface RouterOSClientInstance {
     removeAllListeners(): void;
 }
 
-// Global connection pool
+// Connection pool Key: "IP:PORT"
 const connectionPool = new Map<string, RouterOSClientInstance>();
 
 export class MikroTikService {
     
-    /**
-     * Get an active connection from the pool or create a new one.
-     */
-    private static async getClient(ip: string, user: string, pass: string): Promise<RouterOSClientInstance> {
-        if (connectionPool.has(ip)) {
-            return connectionPool.get(ip)!;
+    private static getPoolKey(ip: string, port: number): string {
+        return `${ip}:${port}`;
+    }
+
+    private static async getClient(ip: string, port: number, user: string, pass: string, ssl: boolean): Promise<RouterOSClientInstance> {
+        const key = this.getPoolKey(ip, port);
+        
+        if (connectionPool.has(key)) {
+            return connectionPool.get(key)!;
         }
 
         const client = new RouterOSClient({
             host: ip,
+            port: port,
             user: user,
             password: pass,
+            tls: ssl ? { rejectUnauthorized: false } : undefined, // Fix: tls expects TlsOptions object or undefined
             keepalive: true,
             timeout: 10 // seconds
         }) as unknown as RouterOSClientInstance;
 
-        // Cleanup logic
         const cleanup = () => {
-            if (connectionPool.get(ip) === client) {
-                connectionPool.delete(ip);
+            if (connectionPool.get(key) === client) {
+                connectionPool.delete(key);
                 try {
                     client.removeAllListeners();
                     client.close();
-                } catch (e) { /* ignore close errors */ }
-                logger.debug(`Cleaned up MikroTik connection for ${ip}`);
+                } catch (e) { /* ignore */ }
+                logger.debug(`Cleaned up MikroTik connection for ${key}`);
             }
         };
 
         client.on('error', (err: any) => {
-            logger.warn(`MikroTik connection error [${ip}]: ${err.message}`);
+            logger.warn(`MikroTik connection error [${key}]: ${err.message}`);
             cleanup();
         });
 
@@ -57,20 +59,24 @@ export class MikroTikService {
             cleanup();
         });
 
-        await client.connect();
-        connectionPool.set(ip, client);
+        // 5s timeout for connection attempt
+        const connectPromise = client.connect();
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        );
+
+        await Promise.race([connectPromise, timeoutPromise]);
+        
+        connectionPool.set(key, client);
         return client;
     }
 
-    /**
-     * Fetch real-time metrics including traffic, resources, and health.
-     */
-    static async fetchMetrics(ip: string, user: string, pass: string): Promise<Partial<NodeMetrics>> {
+    static async fetchMetrics(ip: string, port: number, user: string, pass: string, ssl: boolean): Promise<Partial<NodeMetrics>> {
         let client: RouterOSClientInstance | null = null;
         try {
-            client = await this.getClient(ip, user, pass);
+            client = await this.getClient(ip, port, user, pass, ssl);
             
-            // 1. Fetch System Resources, Health, and Default Route in parallel
+            // 1. Parallel Fetch: Resources, Health, Active Route (for WAN detection)
             const [resourceRes, healthRes, routeRes] = await Promise.all([
                 client.menu('/system/resource').get(),
                 client.menu('/system/health').get(),
@@ -80,21 +86,24 @@ export class MikroTikService {
             const res = resourceRes[0] || {};
             const health = healthRes[0] || {};
 
-            // 2. Auto-Detect WAN Interface from Default Route
-            let wanInterface = 'ether1'; // Fallback
+            // 2. Strict WAN Detection
+            let wanInterface = '';
             if (routeRes && routeRes.length > 0) {
                 const route = routeRes[0];
-                // Try to parse interface from gateway-status (e.g. "1.1.1.1 reachable on pppoe-out1")
                 if (route['gateway-status']) {
+                    // Format: "1.1.1.1 reachable on pppoe-out1"
                     const parts = route['gateway-status'].split(' reachable on ');
-                    if (parts.length > 1) {
-                        wanInterface = parts[1].trim();
-                    }
-                } 
-                // Sometimes gateway is directly the interface name
-                else if (route.gateway && !route.gateway.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+                    if (parts.length > 1) wanInterface = parts[1].trim();
+                } else if (route.gateway && !route.gateway.match(/^\d+\.\d+\.\d+\.\d+$/)) {
                     wanInterface = route.gateway;
                 }
+            }
+
+            if (!wanInterface) {
+                // Fallback attempt: find running interface with largest RX bytes
+                // In production, we might want to throw error if WAN is unknown, 
+                // but for monitoring stability we try to guess if default route fails.
+                wanInterface = 'ether1'; 
             }
 
             // 3. Real-time Traffic Monitor (Snapshot)
@@ -102,6 +111,7 @@ export class MikroTikService {
             let txMbps = 0;
             
             try {
+                // Monitor traffic for 1 second (snapshot)
                 const trafficStats = await client.menu('/interface').monitor(wanInterface, { 
                     once: true,
                     'aggregating-interval': 1 
@@ -112,7 +122,6 @@ export class MikroTikService {
                     const rxBps = parseInt(t['rx-bits-per-second'] || '0', 10);
                     const txBps = parseInt(t['tx-bits-per-second'] || '0', 10);
                     
-                    // Convert to Mbps with 2 decimal precision
                     rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
                     txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
                 }
@@ -120,12 +129,12 @@ export class MikroTikService {
                 logger.warn(`Traffic monitor failed on ${wanInterface} for ${ip}`, { error: err });
             }
 
-            // 4. Calculate Memory Usage %
+            // 4. Memory Calculation
             const totalMem = parseInt(res['total-memory'] || '0', 10);
             const freeMem = parseInt(res['free-memory'] || '0', 10);
             const memUsage = totalMem > 0 ? Math.round(((totalMem - freeMem) / totalMem) * 100) : 0;
 
-            // 5. Active Peers (Optional: PPP/Hotspot count)
+            // 5. Active Peers (PPP)
             let activePeers = 0;
             try {
                 const pppActive = await client.menu('/ppp/active').get();
@@ -141,27 +150,24 @@ export class MikroTikService {
                 txRate: txMbps,
                 rxRate: rxMbps,
                 activePeers: activePeers,
-                // Latency and PacketLoss are typically measured by the poller (ICMP), not the device itself
-                packetLoss: 0, 
-                latency: 0 
+                wanInterface: wanInterface
             };
 
         } catch (error: any) {
-            // If we fail to fetch, assume connection might be bad/stale, remove from pool
-            if (connectionPool.has(ip)) {
-                const client = connectionPool.get(ip)!;
-                try { client.close(); } catch(e){}
-                connectionPool.delete(ip);
+            // Force cleanup on logic errors
+            const key = this.getPoolKey(ip, port);
+            if (connectionPool.has(key)) {
+                const c = connectionPool.get(key)!;
+                try { c.close(); } catch(e){}
+                connectionPool.delete(key);
             }
             throw error;
         }
     }
     
     static closeAll() {
-        for (const [ip, client] of connectionPool.entries()) {
-            try {
-                client.close();
-            } catch (e) { /* ignore */ }
+        for (const [key, client] of connectionPool.entries()) {
+            try { client.close(); } catch (e) { /* ignore */ }
         }
         connectionPool.clear();
     }

@@ -2,14 +2,17 @@ export interface NetworkNode {
     id: string;
     name: string;
     ip_address: string;
+    api_port: number;
+    api_ssl: boolean;
     type: string;
     location_lat: number;
     location_lng: number;
     auth_user?: string;
-    auth_password?: string; // Encrypted in DB
+    auth_password?: string;
     snmp_community?: string;
     status?: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'CRITICAL';
     latency?: number;
+    last_seen?: Date;
 }
 
 export interface NodeMetrics {
@@ -24,4 +27,14 @@ export interface NodeMetrics {
     packetLoss: number;
     latency: number;
     activePeers: number;
+    wanInterface?: string;
+}
+
+export interface Alert {
+    id: string;
+    node_id: string;
+    type: string;
+    message: string;
+    severity: string;
+    created_at: string;
 }

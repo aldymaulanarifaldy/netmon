@@ -19,25 +19,30 @@ export interface MikroTikStats {
   voltage: number; // V
   temperature: number; // C
   uptime: string;
-  boardName: string; // e.g., CCR1036, RB4011
-  version: string; // RouterOS version
+  boardName: string;
+  version: string;
   txRate: number; // Mbps
   rxRate: number; // Mbps
   packetLoss: number; // %
-  activePeers: number; // PPPoE/Hotspot clients
+  activePeers: number;
+  wanInterface?: string;
 }
 
 export interface NetworkNode extends MikroTikStats {
   id: string;
   name: string;
-  ipAddress: string; // New field for CRUD
-  type: string; // Changed from union to string for custom types
+  ipAddress: string;
+  apiPort?: number;
+  apiSsl?: boolean;
+  type: string;
   location: Coordinates;
   status: NodeStatus;
   latency: number; // ms
   region: string;
   snmpEnabled?: boolean;
   snmpCommunity?: string;
+  authUser?: string;
+  authPassword?: string;
 }
 
 export interface Connection {
@@ -46,7 +51,7 @@ export interface Connection {
   target: string;
   status: 'ACTIVE' | 'IDLE' | 'CONGESTED';
   latency: number;
-  controlPoints?: Coordinates[]; // Custom routing points
+  controlPoints?: Coordinates[];
   direction?: 'FORWARD' | 'REVERSE';
 }
 

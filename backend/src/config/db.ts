@@ -14,7 +14,7 @@ export const pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,
 });
 
 pgPool.on('error', (err) => {
@@ -51,19 +51,21 @@ const waitForDb = async (retries = 0): Promise<boolean> => {
 export const initDB = async () => {
     const connected = await waitForDb();
     if (!connected) {
-        process.exit(1); // Allow Docker to restart the container
+        process.exit(1);
     }
 
     const client = await pgPool.connect();
     try {
         await client.query('BEGIN');
 
-        // Nodes Table
+        // Nodes Table with Extended Network Props
         await client.query(`
             CREATE TABLE IF NOT EXISTS nodes (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 name VARCHAR(255) NOT NULL,
                 ip_address INET NOT NULL,
+                api_port INTEGER DEFAULT 8728,
+                api_ssl BOOLEAN DEFAULT FALSE,
                 type VARCHAR(50) DEFAULT 'ACCESS',
                 location_lat DECIMAL(9,6),
                 location_lng DECIMAL(9,6),
@@ -76,20 +78,24 @@ export const initDB = async () => {
             );
         `);
 
-        // Users Table
+        // Alerts Table for Incident Management
         await client.query(`
-             CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS alerts (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
-             );
+                node_id UUID REFERENCES nodes(id) ON DELETE CASCADE,
+                type VARCHAR(50) NOT NULL, -- CPU, OFFLINE, TEMP, TRAFFIC
+                message TEXT NOT NULL,
+                severity VARCHAR(20) DEFAULT 'WARNING',
+                active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                resolved_at TIMESTAMP
+            );
         `);
 
-        // Safe Schema Migrations (Idempotent)
+        // Safe Schema Migrations
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS api_ssl BOOLEAN DEFAULT FALSE`);
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'unknown'`);
-        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP`);
-        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS snmp_community VARCHAR(100) DEFAULT 'public'`);
 
         await client.query('COMMIT');
         logger.info("Database initialized successfully");
@@ -106,6 +112,6 @@ export const closeConnections = async () => {
     await pgPool.end();
     try {
         await writeApi.close();
-    } catch (e) { /* ignore influx close error */ }
+    } catch (e) { /* ignore */ }
     logger.info("Database connections closed");
 };
