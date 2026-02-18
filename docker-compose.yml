@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "3001:3001"
     environment:
@@ -11,9 +13,21 @@ services:
       - INFLUX_TOKEN=my-super-secret-auth-token
       - INFLUX_ORG=netsentry
       - INFLUX_BUCKET=telemetry
+      - CORS_ORIGIN=*
+      - JWT_SECRET=dev_secret_do_not_use_in_prod
     depends_on:
       - postgres
       - influxdb
+    restart: always
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     restart: always
 
   postgres:

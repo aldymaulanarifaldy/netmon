@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NetSentry AI - Network Monitor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
       /* Ensure full height for the app root */
@@ -13,8 +12,8 @@
         margin: 0;
         padding: 0;
       }
-
-      /* Map Filtering for Dark Mode */
+      
+      /* Leaflet overrides */
       .map-dark .leaflet-tile-pane .leaflet-layer {
         filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
       }
@@ -22,38 +21,27 @@
         background: #020617;
         outline: none;
       }
-      
-      /* Remove focus rectangle on click for Leaflet paths */
       path.leaflet-interactive:focus {
         outline: none;
       }
-      
       .connection-base {
         stroke-linecap: round;
         stroke-linejoin: round;
         transition: all 0.5s ease;
       }
-      
-      /* Forced Link Colors to override Leaflet defaults */
       path.link-green { stroke: #22c55e !important; stroke-opacity: 0.8; }
       path.link-yellow { stroke: #eab308 !important; stroke-opacity: 0.9; }
-      
-      /* RTO / Critical Status Animation */
       @keyframes pulse-red-glow {
         0% { stroke-opacity: 0.8; stroke-width: 6; filter: drop-shadow(0 0 2px #ef4444); }
         50% { stroke-opacity: 1; stroke-width: 9; filter: drop-shadow(0 0 8px #ef4444); }
         100% { stroke-opacity: 0.8; stroke-width: 6; filter: drop-shadow(0 0 2px #ef4444); }
       }
-      
       path.link-rto { 
         stroke: #ef4444 !important; 
         animation: pulse-red-glow 1.5s infinite;
         z-index: 1000; 
       }
-      
       path.link-gray { stroke: #475569 !important; stroke-opacity: 0.4; }
-
-      /* Traffic Light Midpoint LED */
       @keyframes led-pulse {
         0% { opacity: 0.8; stroke-width: 2; transform: scale(1); }
         50% { opacity: 1; stroke-width: 4; transform: scale(1.2); }
@@ -67,8 +55,6 @@
         transform-origin: center;
         animation: led-pulse 2s infinite;
       }
-
-      /* Atmospheric Lane Glow */
       .traffic-lane {
         stroke-opacity: 0.15;
         stroke-linecap: round;
@@ -76,13 +62,7 @@
         pointer-events: none;
         filter: blur(4px);
       }
-
-      /* 
-         TRAFFIC PACKET SYSTEM 
-         Creates a distinct moving line segment (packet) to indicate flow.
-      */
       .traffic-packet {
-        /* Packet Length 15, Gap 135. Total Cycle 150 */
         stroke-dasharray: 15, 135 !important; 
         stroke-linecap: round;
         stroke-linejoin: round;
@@ -91,36 +71,28 @@
         stroke-opacity: 1 !important;
         will-change: stroke-dashoffset;
         stroke-width: 8;
-        stroke: #22c55e; /* Default to green to prevent blue flash */
+        stroke: #22c55e;
       }
-
       @keyframes packet-move {
-        /* Move offset from 150 (total length) to 0 to flow forward */
         from { stroke-dashoffset: 150; }
         to { stroke-dashoffset: 0; }
       }
-
-      /* Speed Controls */
       .speed-fast { animation-duration: 1s; }
       .speed-normal { animation-duration: 2s; }
       .speed-slow { animation-duration: 4s; }
       .speed-stalled { animation-duration: 8s; }
-
-      /* Packet Colors - High Visibility */
       path.packet-green { 
-        stroke: #86efac !important; /* Light green core */
+        stroke: #86efac !important;
         filter: drop-shadow(0 0 4px #22c55e) drop-shadow(0 0 8px #16a34a); 
       }
       path.packet-yellow { 
-        stroke: #fde047 !important; /* Light yellow core */
+        stroke: #fde047 !important;
         filter: drop-shadow(0 0 4px #eab308) drop-shadow(0 0 8px #ca8a04); 
       }
       path.packet-red { 
-        stroke: #fca5a5 !important; /* Light red core */
+        stroke: #fca5a5 !important;
         filter: drop-shadow(0 0 4px #ef4444) drop-shadow(0 0 8px #dc2626); 
       }
-
-      /* Ping Ring Animation */
       @keyframes ping-ring {
         0% { transform: scale(0.8); opacity: 0.8; }
         80% { transform: scale(2); opacity: 0; }
@@ -129,7 +101,6 @@
       .marker-ping {
         animation: ping-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
       }
-
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -141,51 +112,19 @@
         background: #334155; 
         border-radius: 4px;
       }
-      
       .leaflet-popup-content-wrapper {
         background-color: #1e293b;
         color: #f1f5f9;
         border: 1px solid #334155;
       }
-      
       .custom-marker-icon {
         background: transparent !important;
         border: none !important;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom/server": "https://esm.sh/react-dom@^19.2.4/server",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "react-leaflet": "https://esm.sh/react-leaflet@^5.0.0",
-    "leaflet": "https://esm.sh/leaflet@^1.9.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
-    "leaflet/": "https://esm.sh/leaflet@^1.9.4/",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "express": "https://esm.sh/express@^5.2.1",
-    "cors": "https://esm.sh/cors@^2.8.6",
-    "socket.io-client": "https://esm.sh/socket.io-client@^4.7.2",
-    "http": "https://esm.sh/http@^0.0.1-security",
-    "dotenv": "https://esm.sh/dotenv@^17.3.1",
-    "pg": "https://esm.sh/pg@^8.18.0",
-    "net-ping": "https://esm.sh/net-ping@^1.2.4",
-    "@influxdata/influxdb-client": "https://esm.sh/@influxdata/influxdb-client@^1.35.0",
-    "routeros-client": "https://esm.sh/routeros-client@^1.1.2",
-    "socket.io": "https://esm.sh/socket.io@^4.8.3",
-    "jsonwebtoken": "https://esm.sh/jsonwebtoken@^9.0.3",
-    "express-rate-limit": "https://esm.sh/express-rate-limit@^8.2.1",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
-  }
-}
-</script>
 </head>
   <body class="bg-slate-950 text-slate-100 overflow-hidden">
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>
