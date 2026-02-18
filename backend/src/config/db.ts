@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { InfluxDB } from '@influxdata/influxdb-client';
 import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
+import process from 'process';
 
 dotenv.config();
 

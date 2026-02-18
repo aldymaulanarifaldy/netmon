@@ -5,6 +5,3 @@ dist
 docker-compose.override.yml
 coverage
 *.log
-Dockerfile.frontend
-Dockerfile.prod.local
-docker-compose.override.yml

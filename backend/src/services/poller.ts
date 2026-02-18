@@ -26,7 +26,7 @@ const pingHost = (ip: string): Promise<number> => {
 };
 
 let isPolling = false;
-let pollInterval: NodeJS.Timeout | null = null;
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 export const stopPoller = () => {
     if (pollInterval) clearInterval(pollInterval);

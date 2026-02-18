@@ -9,6 +9,7 @@ import { initDB, pgPool, closeConnections } from './config/db';
 import { startPoller, stopPoller } from './services/poller';
 import { authenticateToken } from './middleware/auth';
 import { logger } from './utils/logger';
+import process from 'process';
 
 dotenv.config();
 

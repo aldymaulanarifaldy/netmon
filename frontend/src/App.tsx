@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import NetworkMap from './components/NetworkMap';
 import StatsPanel from './components/StatsPanel';
@@ -66,7 +65,7 @@ function App() {
 
           try {
               // Assuming running via Docker/Nginx proxy on same origin
-              const apiUrl = import.meta.env.PROD ? '/api/nodes' : 'http://localhost:3001/api/nodes';
+              const apiUrl = (import.meta as any).env.PROD ? '/api/nodes' : 'http://localhost:3001/api/nodes';
               const res = await fetch(apiUrl, {
                   headers: { 'Authorization': `Bearer ${authToken}` }
               });
@@ -100,7 +99,7 @@ function App() {
                 setNodes(mappedNodes);
 
                 // Setup Socket
-                const socketUrl = import.meta.env.PROD ? '/' : 'http://localhost:3001';
+                const socketUrl = (import.meta as any).env.PROD ? '/' : 'http://localhost:3001';
                 const socket = io(socketUrl, {
                     auth: { token: authToken }
                 });
@@ -136,7 +135,7 @@ function App() {
       const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
       try {
-          const apiUrl = import.meta.env.PROD ? '/api/login' : 'http://localhost:3001/api/login';
+          const apiUrl = (import.meta as any).env.PROD ? '/api/login' : 'http://localhost:3001/api/login';
           const res = await fetch(apiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -237,7 +236,7 @@ function App() {
 
     // Send to Backend
     if (isAuthenticated) {
-        const apiUrl = import.meta.env.PROD ? '/api/nodes' : 'http://localhost:3001/api/nodes';
+        const apiUrl = (import.meta as any).env.PROD ? '/api/nodes' : 'http://localhost:3001/api/nodes';
         fetch(apiUrl, {
             method: 'POST',
             headers: { 
