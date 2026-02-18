@@ -88,7 +88,7 @@ const PORT = process.env.PORT || 3001;
 // Startup Sequence
 const startServer = async () => {
     await initDB(); // Wait for DB
-    server.listen(PORT, () => {
+    server.listen(PORT, "0.0.0.0", () => {
         logger.info(`Backend running on port ${PORT}`);
         startPoller(io);
     });
