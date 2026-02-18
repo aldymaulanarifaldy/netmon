@@ -4,73 +4,91 @@ export const analyzeNetworkNode = async (
   node: NetworkNode,
   recentLogs: LogEntry[]
 ): Promise<AIAnalysisResult> => {
-  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-  const apiKey = process.env.API_KEY;
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.warn("API_KEY is missing in environment variables.");
     return {
-        summary: "Configuration Error: API Key missing.",
-        recommendations: ["Set API_KEY in your environment variables"],
-        riskScore: 0
+      summary: "Missing VITE_GEMINI_API_KEY",
+      recommendations: ["Set VITE_GEMINI_API_KEY in .env file"],
+      riskScore: 0
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey });
-
   const prompt = `
-    You are a Senior Network Engineer expert in MikroTik RouterOS. Analyze the following telemetry for device "${node.name}" (${node.boardName}, v${node.version}).
-    
-    Telemetry:
-    - Status: ${node.status}
-    - Latency: ${node.latency}ms
-    - Packet Loss: ${node.packetLoss}%
-    - CPU Load: ${node.cpuLoad}%
-    - Memory Usage: ${node.memoryUsage}%
-    - Voltage: ${node.voltage}V
-    - Temperature: ${node.temperature}C
-    - TX/RX Rate: ${node.txRate}/${node.rxRate} Mbps
+You are a Senior Network Engineer expert in MikroTik RouterOS.
 
-    Logs (Last 5 mins):
-    ${recentLogs.map(l => `[${l.timestamp}] ${l.level}: ${l.message}`).join('\n')}
+Device:
+Name: ${node.name}
+Board: ${node.boardName}
+Version: ${node.version}
+Status: ${node.status}
+Latency: ${node.latency} ms
+Packet Loss: ${node.packetLoss}%
+CPU: ${node.cpuLoad}%
+Memory: ${node.memoryUsage}%
+Voltage: ${node.voltage}V
+Temperature: ${node.temperature}C
+Traffic: ${node.txRate}/${node.rxRate} Mbps
 
-    Provide a structured JSON response:
-    1. 'summary': Technical diagnosis. Use Network Engineering terms (saturation, flap, interference).
-    2. 'recommendations': 3 specific RouterOS commands or actions (e.g., "interface wireless monitor wlan1", "tool torch").
-    3. 'riskScore': 0-100.
-  `;
+Logs:
+${recentLogs.map(l => `[${l.timestamp}] ${l.level}: ${l.message}`).join('\n')}
+
+Respond strictly in JSON:
+{
+  "summary": "string",
+  "recommendations": ["string","string","string"],
+  "riskScore": number
+}
+`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            recommendations: { 
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            riskScore: { type: Type.NUMBER },
-          },
-          required: ["summary", "recommendations", "riskScore"],
-        }
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
       }
-    });
+    );
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
-    
-    return JSON.parse(text) as AIAnalysisResult;
-  } catch (error) {
-    console.error("Gemini Analysis Failed", error);
+    if (!response.ok) {
+      throw new Error("Gemini API request failed");
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error("Empty AI response");
+    }
+
+    const parsed = JSON.parse(text);
+
     return {
-        summary: "Analysis unavailable. Check connectivity to management plane.",
-        recommendations: ["ping 8.8.8.8", "tool traceroute", "system resource print"],
-        riskScore: 0
+      summary: parsed.summary,
+      recommendations: parsed.recommendations,
+      riskScore: parsed.riskScore
+    };
+
+  } catch (error) {
+    console.error("Gemini analysis failed:", error);
+    return {
+      summary: "AI analysis unavailable.",
+      recommendations: [
+        "Check internet connection",
+        "Verify API key",
+        "Check Gemini quota"
+      ],
+      riskScore: 0
     };
   }
 };
