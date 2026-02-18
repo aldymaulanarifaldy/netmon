@@ -5,7 +5,7 @@ import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
+import { Zap, Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 const generateRandomLatency = (base: number) => Math.max(1, Math.floor(base + (Math.random() * 20 - 10)));
@@ -261,6 +261,34 @@ function App() {
 
     return () => clearInterval(interval);
   }, [isSimulating]);
+
+  // History tracking logic (Uses setters to fix unused variable warning and provide functionality)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date().toLocaleTimeString();
+      
+      setNodeHistory(prev => {
+        const next = { ...prev };
+        nodes.forEach(node => {
+          const current = next[node.id] || [];
+          next[node.id] = [...current, { timestamp: now, value: node.latency }].slice(-20);
+        });
+        return next;
+      });
+
+      setConnectionHistory(prev => {
+        const next = { ...prev };
+        connections.forEach(conn => {
+          const current = next[conn.id] || [];
+          next[conn.id] = [...current, { timestamp: now, value: conn.latency }].slice(-20);
+        });
+        return next;
+      });
+
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [nodes, connections]);
 
   const addLog = (level: 'INFO' | 'WARN' | 'ERROR', message: string, nodeName: string) => {
     setLogs(prev => [{
