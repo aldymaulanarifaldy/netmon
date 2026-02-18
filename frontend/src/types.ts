@@ -1,3 +1,4 @@
+
 export enum NodeStatus {
   ONLINE = 'ONLINE',
   WARNING = 'WARNING',
@@ -26,6 +27,7 @@ export interface MikroTikStats {
   packetLoss: number; // %
   activePeers: number;
   wanInterface?: string;
+  lanInterface?: string;
 }
 
 export interface NetworkNode extends MikroTikStats {

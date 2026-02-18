@@ -1,3 +1,4 @@
+
 import { pgPool, writeApi } from '../config/db';
 import { MikroTikService } from './mikrotik';
 import { AlertService } from './alertService';
@@ -89,7 +90,8 @@ export const startPoller = (io: any) => {
                                     node.api_port || 8728,
                                     node.auth_user,
                                     node.auth_password,
-                                    node.api_ssl
+                                    node.api_ssl,
+                                    node.wan_interface // Pass strict WAN interface
                                 );
 
                                 // Check Thresholds

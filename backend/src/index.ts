@@ -1,3 +1,4 @@
+
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -6,6 +7,7 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import { initDB, pgPool, closeConnections, influxClient } from './config/db';
 import { startPoller, stopPoller } from './services/poller';
+import { MikroTikService } from './services/mikrotik';
 import { logger } from './utils/logger';
 import process from 'process';
 
@@ -29,7 +31,7 @@ app.use(express.json() as any);
 app.get('/api/nodes', async (req: any, res: any) => {
     try {
         const result = await pgPool.query(
-            'SELECT id, name, ip_address, api_port, api_ssl, type, location_lat, location_lng, status, last_seen, snmp_community FROM nodes ORDER BY name ASC'
+            'SELECT id, name, ip_address, api_port, api_ssl, type, location_lat, location_lng, status, wan_interface, lan_interface, last_seen, snmp_community FROM nodes ORDER BY name ASC'
         );
         res.json(result.rows);
     } catch (e: any) {
@@ -37,18 +39,42 @@ app.get('/api/nodes', async (req: any, res: any) => {
     }
 });
 
-// 2. Create Node (Provisioning)
+// 2. Detect Interfaces (Discovery)
+app.post('/api/devices/detect-interfaces', async (req: any, res: any) => {
+    const { ip, port, username, password, ssl } = req.body;
+    
+    if (!ip || !username) {
+        return res.status(400).json({ error: "Missing required connection parameters" });
+    }
+
+    try {
+        const interfaces = await MikroTikService.getInterfaces(
+            ip, 
+            parseInt(port) || 8728, 
+            username, 
+            password, 
+            ssl || false
+        );
+        res.json(interfaces);
+    } catch (e: any) {
+        logger.error(`Interface detection failed for ${ip}`, { error: e.message });
+        res.status(502).json({ error: `Connection failed: ${e.message}` });
+    }
+});
+
+// 3. Create Node (Provisioning)
 app.post('/api/nodes', async (req: any, res: any) => {
     const { 
         name, ip_address, api_port, api_ssl, type, 
-        location_lat, location_lng, auth_user, auth_password, snmp_community 
+        location_lat, location_lng, auth_user, auth_password, 
+        snmp_community, wan_interface, lan_interface 
     } = req.body;
 
     try {
         const result = await pgPool.query(
-            `INSERT INTO nodes (name, ip_address, api_port, api_ssl, type, location_lat, location_lng, auth_user, auth_password, snmp_community, status) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'unknown') RETURNING *`,
-            [name, ip_address, api_port || 8728, api_ssl || false, type, location_lat, location_lng, auth_user, auth_password, snmp_community]
+            `INSERT INTO nodes (name, ip_address, api_port, api_ssl, type, location_lat, location_lng, auth_user, auth_password, snmp_community, wan_interface, lan_interface, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'unknown') RETURNING *`,
+            [name, ip_address, api_port || 8728, api_ssl || false, type, location_lat, location_lng, auth_user, auth_password, snmp_community, wan_interface, lan_interface]
         );
         logger.info(`Provisioned Node: ${name} (${ip_address})`);
         res.json(result.rows[0]);
@@ -57,7 +83,7 @@ app.post('/api/nodes', async (req: any, res: any) => {
     }
 });
 
-// 3. Get Node History (InfluxDB)
+// 4. Get Node History (InfluxDB)
 app.get('/api/nodes/:id/history', async (req: any, res: any) => {
     const { id } = req.params;
     const range = req.query.range || '1h'; // 1h, 6h, 12h, 24h

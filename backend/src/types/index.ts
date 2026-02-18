@@ -1,3 +1,4 @@
+
 export interface NetworkNode {
     id: string;
     name: string;
@@ -11,6 +12,8 @@ export interface NetworkNode {
     auth_password?: string;
     snmp_community?: string;
     status?: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'CRITICAL';
+    wan_interface?: string;
+    lan_interface?: string;
     latency?: number;
     last_seen?: Date;
 }

@@ -1,3 +1,4 @@
+
 import { Pool } from 'pg';
 import { InfluxDB } from '@influxdata/influxdb-client';
 import dotenv from 'dotenv';
@@ -73,6 +74,8 @@ export const initDB = async () => {
                 auth_password TEXT,
                 snmp_community VARCHAR(100) DEFAULT 'public',
                 status VARCHAR(20) DEFAULT 'unknown',
+                wan_interface VARCHAR(100),
+                lan_interface VARCHAR(100),
                 last_seen TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW()
             );
@@ -96,6 +99,8 @@ export const initDB = async () => {
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS api_port INTEGER DEFAULT 8728`);
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS api_ssl BOOLEAN DEFAULT FALSE`);
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'unknown'`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS wan_interface VARCHAR(100)`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS lan_interface VARCHAR(100)`);
 
         await client.query('COMMIT');
         logger.info("Database initialized successfully");

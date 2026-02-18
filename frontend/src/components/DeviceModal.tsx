@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, MapPin, Server, Share2, Shield, Lock, Globe } from 'lucide-react';
+import { X, Save, Trash2, MapPin, Server, Share2, Shield, Lock, Globe, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { NetworkNode, NodeStatus, Connection } from '../types';
 
 interface DeviceModalProps {
@@ -26,10 +27,17 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
     snmpEnabled: true,
     snmpCommunity: 'public',
     authUser: 'admin',
-    authPassword: ''
+    authPassword: '',
+    wanInterface: '',
+    lanInterface: ''
   });
   const [uplinkId, setUplinkId] = useState<string>('');
   const [customTypeMode, setCustomTypeMode] = useState(false);
+  
+  // Interface Discovery State
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectedInterfaces, setDetectedInterfaces] = useState<any[]>([]);
+  const [detectionError, setDetectionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (node) {
@@ -39,7 +47,9 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
         apiPort: node.apiPort || 8728,
         apiSsl: node.apiSsl || false,
         snmpEnabled: node.snmpEnabled ?? true,
-        snmpCommunity: node.snmpCommunity ?? 'public'
+        snmpCommunity: node.snmpCommunity ?? 'public',
+        wanInterface: node.wanInterface || '',
+        lanInterface: node.lanInterface || ''
       });
       
       if (node.type && !PRESET_TYPES.includes(node.type)) {
@@ -54,6 +64,43 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
       }
     }
   }, [node]);
+
+  const handleDetectInterfaces = async () => {
+      setIsDetecting(true);
+      setDetectionError(null);
+      setDetectedInterfaces([]);
+
+      try {
+          const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : '';
+          const res = await fetch(`${apiUrl}/api/devices/detect-interfaces`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  ip: formData.ipAddress,
+                  port: formData.apiPort,
+                  username: formData.authUser,
+                  password: formData.authPassword,
+                  ssl: formData.apiSsl
+              })
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Detection failed');
+          
+          setDetectedInterfaces(data);
+          
+          // Auto-select likely candidates if not set
+          if (!formData.wanInterface && data.length > 0) {
+              const likelyWan = data.find((i: any) => i.name.toLowerCase().includes('wan') || i.name.toLowerCase().includes('ether1'));
+              if (likelyWan) setFormData(prev => ({...prev, wanInterface: likelyWan.name}));
+          }
+
+      } catch (err: any) {
+          setDetectionError(err.message);
+      } finally {
+          setIsDetecting(false);
+      }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,39 +192,106 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
                     />
                  </div>
              </div>
-             <div className="flex items-center gap-2">
-                 <input 
-                    type="checkbox" 
-                    id="ssl" 
-                    checked={formData.apiSsl} 
-                    onChange={e => setFormData({...formData, apiSsl: e.target.checked})}
-                    className="rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-500"
-                 />
-                 <label htmlFor="ssl" className="text-sm text-slate-300 flex items-center gap-1">
-                    <Lock size={12}/> Use SSL (TLS)
-                 </label>
+             
+             {/* Credentials */}
+             <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">API User</label>
+                    <input 
+                      type="text" 
+                      value={formData.authUser}
+                      onChange={e => setFormData({...formData, authUser: e.target.value})}
+                      className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">API Password</label>
+                    <input 
+                      type="password" 
+                      value={formData.authPassword}
+                      onChange={e => setFormData({...formData, authPassword: e.target.value})}
+                      className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
+                    />
+                </div>
              </div>
+
+             <div className="flex justify-between items-center border-t border-slate-700 pt-3">
+                 <div className="flex items-center gap-2">
+                     <input 
+                        type="checkbox" 
+                        id="ssl" 
+                        checked={formData.apiSsl} 
+                        onChange={e => setFormData({...formData, apiSsl: e.target.checked})}
+                        className="rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-500"
+                     />
+                     <label htmlFor="ssl" className="text-sm text-slate-300 flex items-center gap-1">
+                        <Lock size={12}/> Use SSL (TLS)
+                     </label>
+                 </div>
+                 
+                 <button 
+                    type="button" 
+                    onClick={handleDetectInterfaces}
+                    disabled={isDetecting || !formData.ipAddress}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded text-xs font-bold transition-colors"
+                 >
+                     {isDetecting ? <RefreshCw size={14} className="animate-spin"/> : <RefreshCw size={14}/>}
+                     {isDetecting ? 'Detecting...' : 'Test & Detect Interfaces'}
+                 </button>
+             </div>
+
+             {/* Detection Feedback */}
+             {detectionError && (
+                 <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded flex items-center gap-2 text-red-300 text-xs">
+                     <AlertCircle size={14} /> {detectionError}
+                 </div>
+             )}
+             
+             {detectedInterfaces.length > 0 && (
+                 <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded flex items-center gap-2 text-green-300 text-xs">
+                     <CheckCircle size={14} /> Connection Successful. Found {detectedInterfaces.length} interfaces.
+                 </div>
+             )}
           </div>
 
-          {/* Credentials */}
+          {/* Interface Selection */}
           <div className="grid grid-cols-2 gap-4">
               <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">API User</label>
-                  <input 
-                    type="text" 
-                    value={formData.authUser}
-                    onChange={e => setFormData({...formData, authUser: e.target.value})}
-                    className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
-                  />
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">WAN Interface (Monitor)</label>
+                  <select 
+                     value={formData.wanInterface}
+                     onChange={e => setFormData({...formData, wanInterface: e.target.value})}
+                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
+                  >
+                      <option value="">-- Select WAN --</option>
+                      {detectedInterfaces.length > 0 ? (
+                          detectedInterfaces.map((iface: any) => (
+                              <option key={iface.name} value={iface.name}>{iface.name} ({iface.type})</option>
+                          ))
+                      ) : (
+                          // If editing and didn't re-detect, show existing value as option
+                          formData.wanInterface && <option value={formData.wanInterface}>{formData.wanInterface}</option>
+                      )}
+                      {!detectedInterfaces.length && <option value="ether1">ether1 (Default)</option>}
+                  </select>
+                  <div className="text-[10px] text-slate-500 mt-1">Interface used for traffic graphs</div>
               </div>
               <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">API Password</label>
-                  <input 
-                    type="password" 
-                    value={formData.authPassword}
-                    onChange={e => setFormData({...formData, authPassword: e.target.value})}
-                    className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
-                  />
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">LAN Interface (Optional)</label>
+                   <select 
+                     value={formData.lanInterface}
+                     onChange={e => setFormData({...formData, lanInterface: e.target.value})}
+                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:border-blue-500 outline-none"
+                  >
+                      <option value="">-- Select LAN --</option>
+                      {detectedInterfaces.length > 0 ? (
+                          detectedInterfaces.map((iface: any) => (
+                              <option key={iface.name} value={iface.name}>{iface.name} ({iface.type})</option>
+                          ))
+                      ) : (
+                          formData.lanInterface && <option value={formData.lanInterface}>{formData.lanInterface}</option>
+                      )}
+                  </select>
               </div>
           </div>
 
