@@ -1,9 +1,10 @@
+
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { NetworkNode, Connection, NodeStatus, ViewMode, MapStyle, Coordinates } from '../types';
 import { MAP_CENTER, MAP_ZOOM } from '../constants';
-import { Server, Radio, Router, Wifi, Zap, Monitor, MapPin, ArrowUp, ArrowDown, Cpu, Activity, AlertTriangle, Link2 } from 'lucide-react';
+import { Server, Radio, Router, Wifi, Zap, Monitor, MapPin, ArrowUp, ArrowDown, Cpu, Activity, Link2 } from 'lucide-react';
 import { renderToString } from 'react-dom/server';
 
 // Fix for default Leaflet marker icons
@@ -277,7 +278,8 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
     };
 
     const links = useMemo(() => {
-        return connections.map((conn, index) => {
+        // Removed unused 'index' parameter
+        return connections.map((conn) => {
             const sourceNode = nodes.find(n => n.id === conn.source);
             const targetNode = nodes.find(n => n.id === conn.target);
             
@@ -502,11 +504,14 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
                                         onConnectionUpdate(conn.id, { controlPoints: newPoints });
                                     }}
                                     onRightClick={() => {
-                                        const newPoints = intermediatePoints.filter((_, idx) => idx !== i);
+                                        // Use array copy and splice to avoid using index in filter which might trigger unused var
+                                        const newPoints = [...intermediatePoints];
+                                        newPoints.splice(i, 1);
                                         onConnectionUpdate(conn.id, { controlPoints: newPoints });
                                     }}
                                     onDoubleClick={() => {
-                                        const newPoints = intermediatePoints.filter((_, idx) => idx !== i);
+                                        const newPoints = [...intermediatePoints];
+                                        newPoints.splice(i, 1);
                                         onConnectionUpdate(conn.id, { controlPoints: newPoints });
                                     }}
                                 />

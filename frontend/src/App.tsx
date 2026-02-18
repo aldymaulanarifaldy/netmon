@@ -5,7 +5,6 @@ import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-// Fix: Added missing 'Zap' import which was used in the Traffic Flow button
 import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
 

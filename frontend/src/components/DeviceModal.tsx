@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, MapPin, Server, Share2, Shield, Edit2 } from 'lucide-react';
+import { X, Save, Trash2, MapPin, Server, Share2, Shield } from 'lucide-react';
 import { NetworkNode, NodeStatus, Connection } from '../types';
 
 interface DeviceModalProps {

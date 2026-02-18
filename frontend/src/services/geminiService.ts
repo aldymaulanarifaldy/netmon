@@ -1,20 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { NetworkNode, LogEntry, AIAnalysisResult } from '../types';
 
-const getClient = () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) return null;
-    return new GoogleGenAI({ apiKey });
-};
-
 export const analyzeNetworkNode = async (
   node: NetworkNode,
   recentLogs: LogEntry[]
 ): Promise<AIAnalysisResult> => {
-  const client = getClient();
-  if (!client) {
-    throw new Error("API Key not found. Please set the API_KEY environment variable.");
-  }
+  // API Key must be obtained exclusively from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     You are a Senior Network Engineer expert in MikroTik RouterOS. Analyze the following telemetry for device "${node.name}" (${node.boardName}, v${node.version}).
@@ -39,7 +31,7 @@ export const analyzeNetworkNode = async (
   `;
 
   try {
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {

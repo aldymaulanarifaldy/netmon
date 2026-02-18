@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { NetworkNode, NodeStatus, LogEntry, AIAnalysisResult, Connection } from '../types';
-import { Activity, Cpu, Server, Wifi, ShieldCheck, AlertTriangle, Play, Sparkles, Thermometer, Radio, ArrowUp, ArrowDown, Zap, Edit, Trash, ArrowRightLeft, Clock, Calendar } from 'lucide-react';
+import { Activity, Cpu, Server, Wifi, AlertTriangle, Sparkles, Thermometer, Radio, ArrowUp, ArrowDown, Zap, Edit, ArrowRightLeft, Clock } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Brush, CartesianGrid } from 'recharts';
 import { analyzeNetworkNode } from '../services/geminiService';
 
