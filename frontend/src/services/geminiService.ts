@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { NetworkNode, LogEntry, AIAnalysisResult } from '../types';
 
 export const analyzeNetworkNode = async (
