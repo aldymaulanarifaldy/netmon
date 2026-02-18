@@ -1,6 +1,12 @@
 import { JwtPayload } from 'jsonwebtoken';
 import * as express from 'express';
 
+declare module 'express-serve-static-core' {
+    interface Request {
+        user?: string | JwtPayload;
+    }
+}
+
 declare module 'net-ping' {
     export interface SessionOptions {
         networkProtocol?: number;
@@ -17,29 +23,6 @@ declare module 'net-ping' {
     }
 
     export function createSession(options?: SessionOptions): Session;
-}
-
-declare module 'routeros-client' {
-    export interface RouterOSClientOptions {
-        host: string;
-        user?: string;
-        password?: string;
-        port?: number;
-        keepalive?: boolean;
-        timeout?: number;
-    }
-
-    export class RouterOSClient {
-        constructor(options: RouterOSClientOptions);
-        connect(): Promise<void>;
-        close(): Promise<void>;
-        menu(path: string): RouterOSMenu;
-    }
-    
-    export interface RouterOSMenu {
-        get(criteria?: any): Promise<any[]>;
-        monitor(items: string[], options?: any): any; // Stream object
-    }
 }
 
 declare global {

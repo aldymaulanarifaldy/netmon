@@ -32,6 +32,7 @@ export const initDB = async () => {
     try {
         await client.query('BEGIN');
         
+        // 1. Create Base Table
         await client.query(`
             CREATE TABLE IF NOT EXISTS nodes (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,7 +48,19 @@ export const initDB = async () => {
             );
         `);
 
-        // Simple Admin User Table (In production, use separate migration scripts)
+        // 2. Migration: Add status column if not exists
+        await client.query(`
+            ALTER TABLE nodes 
+            ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'unknown';
+        `);
+
+        // 3. Migration: Add last_seen column if not exists
+        await client.query(`
+            ALTER TABLE nodes 
+            ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP;
+        `);
+
+        // 4. Users Table
         await client.query(`
              CREATE TABLE IF NOT EXISTS users (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,11 +71,12 @@ export const initDB = async () => {
         `);
 
         await client.query('COMMIT');
-        logger.info("PostgreSQL Database Initialized");
+        logger.info("PostgreSQL Database Initialized & Migrated");
     } catch (err: any) {
         await client.query('ROLLBACK');
         logger.error("DB Init Error", { error: err.message });
-        process.exit(1); // Fatal error if DB fails
+        // Fatal exit if DB cannot initialize, orchestrator will restart
+        process.exit(1); 
     } finally {
         client.release();
     }
