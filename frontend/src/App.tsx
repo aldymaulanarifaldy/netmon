@@ -1,13 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import NetworkMap from './components/NetworkMap';
 import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-import { LayoutDashboard, Zap, Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable } from 'lucide-react';
+// Fix: Added missing 'Zap' import which was used in the Traffic Flow button
+import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
-
-const generateRandomLatency = (base: number) => Math.max(1, Math.floor(base + (Math.random() * 20 - 10)));
 
 function App() {
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
@@ -19,9 +19,6 @@ function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [nodeHistory, setNodeHistory] = useState<Record<string, { timestamp: string, value: number }[]>>({});
   const [connectionHistory, setConnectionHistory] = useState<Record<string, { timestamp: string, value: number }[]>>({});
-  
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Default true since login is removed
   
   // UI States
   const [showDesignModal, setShowDesignModal] = useState(false);
@@ -45,7 +42,6 @@ function App() {
               const dbNodes = await res.json();
               if (Array.isArray(dbNodes)) {
                   console.log("Connected to Real Backend.");
-                  setIsSimulating(false);
                   
                   const mappedNodes = dbNodes.map((n: any) => ({
                     id: n.id,
@@ -77,8 +73,8 @@ function App() {
                 return () => socket.disconnect();
               }
           } catch (e) {
-              console.log("Backend offline or unreachable, switching to simulation mode.");
-              setIsSimulating(true);
+              console.error("Critical: Could not connect to network management plane.", e);
+              addLog('ERROR', 'Backend disconnected. Real-time updates paused.', 'System');
           }
       };
 
@@ -103,7 +99,7 @@ function App() {
           name: '',
           ipAddress: '',
           type: 'ACCESS',
-          status: NodeStatus.ONLINE,
+          status: NodeStatus.OFFLINE,
           location: coords
         });
         setShowDeviceModal(true);
@@ -143,7 +139,7 @@ function App() {
           source: sourceId,
           target: targetId,
           status: 'ACTIVE',
-          latency: 2,
+          latency: 0,
           controlPoints: [],
           direction: 'FORWARD'
       };
@@ -176,7 +172,7 @@ function App() {
             location_lng: node.location.lng,
             snmp_community: node.snmpCommunity
         })
-    }).catch(err => console.error("Save node failed", err));
+    }).catch(err => console.error("Failed to persist node change", err));
 
     if (uplinkId !== undefined) {
         setConnections(prev => {
@@ -187,7 +183,7 @@ function App() {
                     source: uplinkId,
                     target: node.id,
                     status: 'ACTIVE',
-                    latency: 2,
+                    latency: 0,
                     direction: 'FORWARD'
                 }];
             }
@@ -203,64 +199,34 @@ function App() {
     setShowDeviceModal(false);
   };
 
+  // History tracking for real-time charts
   useEffect(() => {
-    if (!isSimulating) return;
-
     const interval = setInterval(() => {
-      setNodes(prevNodes => prevNodes.map(node => {
-        let newLatency = generateRandomLatency(node.latency < 5 ? 3 : node.latency);
-        const trafficFactor = Math.random() > 0.8 ? 50 : 0;
-        const newTx = Math.max(0, node.txRate + (Math.random() * 20 - 10) + trafficFactor);
-        const newRx = Math.max(0, node.rxRate + (Math.random() * 20 - 10) + trafficFactor);
-        const newCpu = Math.min(100, Math.floor((newTx + newRx) / 10) + 10);
-
-        let newStatus = NodeStatus.ONLINE;
-        let newPacketLoss = 0;
-
-        if (newCpu > 80) {
-            newLatency += 50; 
-            newStatus = NodeStatus.WARNING;
-        }
+        const now = new Date().toLocaleTimeString();
         
-        if (Math.random() > 0.98 && (node.type === 'ACCESS' || node.type === 'BACKHAUL')) {
-            newLatency += 200;
-            newPacketLoss = Math.floor(Math.random() * 15);
-            newStatus = NodeStatus.CRITICAL;
-        }
+        setNodeHistory(prev => {
+            const nextHistory = { ...prev };
+            nodes.forEach(node => {
+                if (!nextHistory[node.id]) nextHistory[node.id] = [];
+                const newPoint = { timestamp: now, value: node.latency };
+                nextHistory[node.id] = [...nextHistory[node.id], newPoint].slice(-20);
+            });
+            return nextHistory;
+        });
 
-        if (Math.random() > 0.998) {
-             newStatus = NodeStatus.OFFLINE;
-             newPacketLoss = 100;
-        }
+        setConnectionHistory(prev => {
+            const nextHistory = { ...prev };
+            connections.forEach(conn => {
+                if (!nextHistory[conn.id]) nextHistory[conn.id] = [];
+                const newPoint = { timestamp: now, value: conn.latency };
+                nextHistory[conn.id] = [...nextHistory[conn.id], newPoint].slice(-20);
+            });
+            return nextHistory;
+        });
 
-        return {
-          ...node,
-          latency: newStatus === NodeStatus.OFFLINE ? 0 : newLatency,
-          cpuLoad: newCpu,
-          txRate: Math.floor(newTx),
-          rxRate: Math.floor(newRx),
-          status: newStatus,
-          packetLoss: newPacketLoss,
-          temperature: 45 + (newCpu > 80 ? 10 : 0)
-        };
-      }));
-
-      setConnections(prevConns => prevConns.map(conn => {
-          const jitter = Math.random() * 2 - 1;
-          const newLatency = Math.max(1, Math.min(100, conn.latency + jitter));
-          const finalLatency = Math.random() > 0.95 ? newLatency + 20 : newLatency;
-
-          return {
-              ...conn,
-              latency: Math.floor(finalLatency),
-              status: finalLatency > 50 ? 'CONGESTED' : 'ACTIVE'
-          };
-      }));
-
-    }, 2000);
-
+    }, 5000);
     return () => clearInterval(interval);
-  }, [isSimulating]);
+  }, [nodes, connections]);
 
   const addLog = (level: 'INFO' | 'WARN' | 'ERROR', message: string, nodeName: string) => {
     setLogs(prev => [{
@@ -334,7 +300,6 @@ function App() {
                             <button onClick={handleAddNode} className="p-2 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors" title="Add New Device"><Plus size={20} /></button>
                             <button onClick={() => { setIsLinkMode(!isLinkMode); setSelectedNodeId(null); setSelectedConnectionId(null); }} className={`p-2 rounded-lg transition-all ${isLinkMode ? 'bg-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`} title={isLinkMode ? "Cancel Link Mode" : "Link Devices (Click Source then Target)"}><Cable size={20} /></button>
                             <button onClick={() => setShowDesignModal(true)} className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors" title="System Proposal"><FileText size={20} /></button>
-                            <button onClick={() => setIsSimulating(!isSimulating)} className={`p-2 rounded-lg transition-colors ${isSimulating ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30' : 'bg-slate-700 text-slate-400'}`} title={isSimulating ? "Pause Simulation" : "Resume Simulation"}><Activity size={20} /></button>
                         </div>
                     </div>
                 </div>
