@@ -1,5 +1,5 @@
 import { pgPool, writeApi } from '../config/db';
-import { MikroTikService } from './mikrotik'; // Fix import path
+import { MikroTikService } from './mikrotik';
 import { Point } from '@influxdata/influxdb-client';
 import ping from 'net-ping';
 import { logger } from '../utils/logger';
@@ -14,7 +14,7 @@ const pingSession = ping.createSession({
 const pingHost = (ip: string): Promise<number> => {
     return new Promise((resolve) => {
         const start = Date.now();
-        pingSession.pingHost(ip, (error, target) => {
+        pingSession.pingHost(ip, (error: Error | null) => {
             if (error) resolve(-1); 
             else resolve(Date.now() - start);
         });
