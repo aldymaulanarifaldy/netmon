@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Dockerfile.frontend
+Dockerfile.prod.local
+docker-compose.override.yml
