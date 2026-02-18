@@ -5,11 +5,11 @@ export const analyzeNetworkNode = async (
   node: NetworkNode,
   recentLogs: LogEntry[]
 ): Promise<AIAnalysisResult> => {
-  // Access API key from process.env.API_KEY as per guidelines
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    console.warn("API Key missing in environment variables.");
+    console.warn("API_KEY is missing in environment variables.");
     return {
         summary: "Configuration Error: API Key missing.",
         recommendations: ["Set API_KEY in your environment variables"],
@@ -17,7 +17,7 @@ export const analyzeNetworkNode = async (
     };
   }
 
-  const client = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     You are a Senior Network Engineer expert in MikroTik RouterOS. Analyze the following telemetry for device "${node.name}" (${node.boardName}, v${node.version}).
@@ -35,14 +35,14 @@ export const analyzeNetworkNode = async (
     Logs (Last 5 mins):
     ${recentLogs.map(l => `[${l.timestamp}] ${l.level}: ${l.message}`).join('\n')}
 
-    Provide a structured JSON response with:
-    1. 'summary': Technical diagnosis using Network Engineering terms.
-    2. 'recommendations': 3 specific RouterOS commands or actions.
-    3. 'riskScore': 0-100 integer.
+    Provide a structured JSON response:
+    1. 'summary': Technical diagnosis. Use Network Engineering terms (saturation, flap, interference).
+    2. 'recommendations': 3 specific RouterOS commands or actions (e.g., "interface wireless monitor wlan1", "tool torch").
+    3. 'riskScore': 0-100.
   `;
 
   try {
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
@@ -51,13 +51,13 @@ export const analyzeNetworkNode = async (
           type: Type.OBJECT,
           properties: {
             summary: { type: Type.STRING },
-            recommendations: {
+            recommendations: { 
               type: Type.ARRAY,
               items: { type: Type.STRING }
             },
-            riskScore: { type: Type.NUMBER }
+            riskScore: { type: Type.NUMBER },
           },
-          required: ["summary", "recommendations", "riskScore"]
+          required: ["summary", "recommendations", "riskScore"],
         }
       }
     });
@@ -66,12 +66,11 @@ export const analyzeNetworkNode = async (
     if (!text) throw new Error("No response from AI");
     
     return JSON.parse(text) as AIAnalysisResult;
-
   } catch (error) {
     console.error("Gemini Analysis Failed", error);
     return {
-        summary: "Analysis unavailable due to connection error.",
-        recommendations: ["Check internet connection", "Verify API Key quota"],
+        summary: "Analysis unavailable. Check connectivity to management plane.",
+        recommendations: ["ping 8.8.8.8", "tool traceroute", "system resource print"],
         riskScore: 0
     };
   }
