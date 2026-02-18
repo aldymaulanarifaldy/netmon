@@ -3,15 +3,15 @@ import { MikroTikService } from './mikrotik';
 import { Point } from '@influxdata/influxdb-client';
 import ping from 'net-ping';
 import { logger } from '../utils/logger';
+import { NetworkNode } from '../types';
 
-// Ping session with standard timeout
-const pingSession = ping.createSession({ 
-    retries: 1, 
+// Ping session with timeout and retries
+const pingSession = ping.createSession({
+    retries: 1,
     timeout: 2000,
-    packetSize: 16 
+    packetSize: 16
 });
 
-// Promisified Ping
 const pingHost = (ip: string): Promise<number> => {
     return new Promise((resolve) => {
         const start = Date.now();
@@ -26,11 +26,17 @@ const pingHost = (ip: string): Promise<number> => {
 };
 
 let isPolling = false;
+let pollInterval: NodeJS.Timeout | null = null;
+
+export const stopPoller = () => {
+    if (pollInterval) clearInterval(pollInterval);
+    MikroTikService.closeAll();
+};
 
 export const startPoller = (io: any) => {
     logger.info("Starting Polling Engine (30s interval)...");
 
-    setInterval(async () => {
+    pollInterval = setInterval(async () => {
         if (isPolling) {
             logger.warn("Previous poll cycle still running. Skipping this cycle.");
             return;
@@ -40,99 +46,101 @@ export const startPoller = (io: any) => {
         let dbClient;
 
         try {
-            // 1. Get Inventory
             dbClient = await pgPool.connect();
             const res = await dbClient.query('SELECT * FROM nodes');
-            const nodes = res.rows;
+            const nodes: NetworkNode[] = res.rows;
 
-            // 2. Poll All Nodes Concurrently
+            if (nodes.length === 0) {
+                isPolling = false;
+                dbClient.release();
+                return;
+            }
+
+            const points: Point[] = [];
+            const updates: any[] = [];
+            const now = new Date();
+
+            // Execute all polls in parallel but handle results safely
             const results = await Promise.allSettled(nodes.map(async (node) => {
                 let status = 'OFFLINE';
                 let latency = -1;
-                let details = {};
+                let metrics: any = {};
 
-                // A. Check Reachability (ICMP)
+                // 1. Check reachability via ICMP
                 latency = await pingHost(node.ip_address);
 
+                // 2. If reachable and credentials exist, fetch details
                 if (latency !== -1) {
                     status = 'ONLINE';
-                    
-                    // B. Fetch detailed stats if Online and Creds exist
                     if (node.auth_user && node.auth_password) {
                         try {
-                            details = await MikroTikService.fetchMetrics(
-                                node.ip_address, 
-                                node.auth_user, 
+                            metrics = await MikroTikService.fetchMetrics(
+                                node.ip_address,
+                                node.auth_user,
                                 node.auth_password
                             );
-                        } catch (e: any) {
-                            logger.warn(`MikroTik fetch failed for ${node.name}: ${e.message}`);
+                        } catch (err: any) {
+                            logger.debug(`MikroTik fetch failed for ${node.ip_address}: ${err.message}`);
+                            // Keep status ONLINE but missing metrics
                         }
                     }
                 }
 
                 return {
-                    nodeId: node.id,
+                    node,
                     status,
                     latency: latency === -1 ? 0 : latency,
-                    ...details
+                    metrics
                 };
             }));
 
-            // 3. Process & Broadcast Results
-            const processedUpdates: any[] = [];
-            const points: Point[] = [];
-            const now = new Date();
-
-            for (let i = 0; i < results.length; i++) {
-                const result = results[i];
+            // 3. Process results sequentially for DB writes to avoid locks
+            for (const result of results) {
                 if (result.status === 'fulfilled') {
-                    const data: any = result.value;
-                    const node = nodes[i];
+                    const { node, status, latency, metrics } = result.value;
 
-                    // Persist Status to Postgres
+                    // Update Status in Postgres
                     await dbClient.query(
-                        `UPDATE nodes 
-                         SET status = $1, last_seen = $2 
-                         WHERE id = $3`,
-                        [data.status, now, node.id]
+                        `UPDATE nodes SET status = $1, last_seen = $2 WHERE id = $3`,
+                        [status, now, node.id]
                     );
 
-                    // Prepare Influx Point
+                    // Prepare InfluxDB Point
                     const point = new Point('device_metrics')
                         .tag('node_name', node.name)
                         .tag('node_id', node.id)
-                        .floatField('latency', data.latency)
-                        .stringField('status', data.status);
+                        .floatField('latency', latency)
+                        .stringField('status', status);
 
-                    if (data.cpuLoad !== undefined) point.intField('cpu_load', data.cpuLoad);
-                    if (data.voltage !== undefined) point.floatField('voltage', data.voltage);
-                    if (data.temperature !== undefined) point.intField('temperature', data.temperature);
-                    
+                    if (metrics.cpuLoad !== undefined) point.intField('cpu_load', metrics.cpuLoad);
+                    if (metrics.voltage !== undefined) point.floatField('voltage', metrics.voltage);
+                    if (metrics.temperature !== undefined) point.intField('temperature', metrics.temperature);
+
                     points.push(point);
 
-                    processedUpdates.push({
+                    updates.push({
                         id: node.id,
-                        ...data
+                        status,
+                        latency,
+                        ...metrics
                     });
                 }
             }
 
-            // Batch Write to InfluxDB
+            // 4. Batch Write to Influx
             if (points.length > 0) {
                 writeApi.writePoints(points);
                 await writeApi.flush();
             }
 
-            // Broadcast to Frontend
-            io.emit('metrics:update', processedUpdates);
+            // 5. Broadcast via Socket.io
+            io.emit('metrics:update', updates);
 
-        } catch (error: any) {
-             logger.error("Critical Poller Error", { error: error.message, stack: error.stack });
+        } catch (err: any) {
+            logger.error("Poller Cycle Error", { error: err.message });
         } finally {
             if (dbClient) dbClient.release();
             isPolling = false;
         }
-
-    }, 30000); // 30 seconds interval
+    }, 30000);
 };
