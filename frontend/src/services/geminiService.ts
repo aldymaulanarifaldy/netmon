@@ -17,6 +17,7 @@ export const analyzeNetworkNode = async (
     };
   }
 
+  // Correct initialization
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
@@ -42,8 +43,9 @@ export const analyzeNetworkNode = async (
   `;
 
   try {
+    // Correct method: ai.models.generateContent
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json",

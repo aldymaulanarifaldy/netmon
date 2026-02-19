@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import NetworkMap from './components/NetworkMap';
 import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable } from 'lucide-react';
+import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 // Global Socket Instance
@@ -13,7 +13,8 @@ let socket: Socket;
 function App() {
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  // logs are currently static/empty as simulation is removed, removing setter to fix TS error
+  const [logs] = useState<LogEntry[]>([]);
   
   // Selection
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -68,7 +69,6 @@ function App() {
       socket.on('disconnect', () => setConnected(false));
 
       // 3. Listen for Dashboard Broadcasts (Map Summary)
-      // Matches backend: io.to('dashboard').emit('dashboard:update', ...)
       socket.on('dashboard:update', (updates: any[]) => {
           setNodes(prev => prev.map(node => {
               const update = updates.find(u => u.nodeId === node.id);
@@ -201,6 +201,12 @@ function App() {
                             <button onClick={() => setMapStyle('DARK')} className={`p-2 rounded-lg ${mapStyle === 'DARK' ? 'bg-slate-700' : ''}`}><Moon size={18} /></button>
                             <button onClick={() => setMapStyle('LIGHT')} className={`p-2 rounded-lg ${mapStyle === 'LIGHT' ? 'bg-slate-700' : ''}`}><Sun size={18} /></button>
                             <button onClick={() => setMapStyle('SATELLITE')} className={`p-2 rounded-lg ${mapStyle === 'SATELLITE' ? 'bg-slate-700' : ''}`}><Globe size={18} /></button>
+                        </div>
+                        <div className="flex gap-2">
+                             <div className="bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 flex">
+                                <button onClick={() => setViewMode('TOPOLOGY')} className={`p-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${viewMode === 'TOPOLOGY' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}><Share2 size={16} /> Topology</button>
+                                <button onClick={() => setViewMode('TRAFFIC')} className={`p-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${viewMode === 'TRAFFIC' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'text-slate-400 hover:text-white'}`}><Zap size={16} /> Traffic Flow</button>
+                             </div>
                         </div>
                         <div className="bg-slate-900/90 backdrop-blur-md p-2 rounded-xl border border-slate-700 flex gap-2">
                             <button onClick={handleAddNode} className="p-2 rounded-lg bg-green-600 hover:bg-green-500 text-white"><Plus size={20} /></button>

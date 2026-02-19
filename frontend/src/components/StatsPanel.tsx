@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkNode, Connection, AIAnalysisResult, LogEntry } from '../types';
-import { Activity, Cpu, Server, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, Clock } from 'lucide-react';
+import { Activity, Cpu, Server, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, Clock, ArrowRightLeft, Wifi } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Brush } from 'recharts';
 import { analyzeNetworkNode } from '../services/geminiService';
 import { Socket } from 'socket.io-client';
@@ -29,34 +29,32 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
   const [liveMetrics, setLiveMetrics] = useState<Partial<NetworkNode>>({});
 
   useEffect(() => {
-    if (!node) return;
+    // Reset chart data when selection changes
+    setChartData([]);
+    
+    if (node) {
+        // 1. Subscribe to Node Room
+        socket.emit('subscribe_node', node.id);
 
-    // 1. Subscribe to Node Room for High-Frequency Updates (Live Latency)
-    socket.emit('subscribe_node', node.id);
-
-    const handleUpdate = (update: any) => {
-        if (update.nodeId === node.id) {
-            setLiveMetrics(update);
-            // Append to chart data if we are in '1h' mode for smooth live effect
-            if (timeRange === '1h') {
-                setChartData(prev => [...prev.slice(-59), {
-                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}),
-                    value: update.latency || 0
-                }]);
+        const handleUpdate = (update: any) => {
+            if (update.nodeId === node.id) {
+                setLiveMetrics(update);
+                if (timeRange === '1h') {
+                    setChartData(prev => [...prev.slice(-59), {
+                        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}),
+                        value: update.latency || 0
+                    }]);
+                }
             }
-        }
-    };
+        };
+        socket.on('node:full_update', handleUpdate);
 
-    socket.on('node:full_update', handleUpdate);
-
-    // 2. Fetch Historical Data from InfluxDB (Backend API)
-    const fetchHistory = () => {
+        // 2. Fetch Historical Data
         const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : '';
         fetch(`${apiUrl}/api/nodes/${node.id}/history?range=${timeRange}`)
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
-                    // Process InfluxDB pivot data to chart format
                     const latencyPoints = data
                         .filter((d: any) => d.field === 'latency')
                         .map((d: any) => ({
@@ -64,25 +62,17 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
                             value: Math.round(d.value)
                         }));
                     setChartData(latencyPoints);
-                } else {
-                    setChartData([]);
                 }
             })
-            .catch(err => {
-                console.error("Failed to fetch history:", err);
-                setChartData([]);
-            });
-    };
+            .catch(err => console.error("Failed to fetch history:", err));
 
-    fetchHistory();
-
-    return () => {
-        socket.emit('unsubscribe_node', node.id);
-        socket.off('node:full_update', handleUpdate);
-        setLiveMetrics({});
-        setChartData([]);
-    };
-  }, [node?.id, timeRange]);
+        return () => {
+            socket.emit('unsubscribe_node', node.id);
+            socket.off('node:full_update', handleUpdate);
+            setLiveMetrics({});
+        };
+    }
+  }, [node?.id, timeRange, socket]);
 
   const handleAIAnalyze = async () => {
     if (!node) return;
@@ -96,6 +86,77 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
     finally { setAnalyzing(false); }
   };
 
+  // --- CONNECTION VIEW ---
+  if (connection && !node) {
+      const sourceNode = allNodes.find(n => n.id === connection.source);
+      const targetNode = allNodes.find(n => n.id === connection.target);
+
+      return (
+        <div className="h-full flex flex-col p-6 overflow-y-auto custom-scrollbar">
+             {/* Header */}
+             <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-100 leading-tight flex items-center gap-2">
+                      <ArrowRightLeft className="text-blue-400" /> Link Details
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded bg-slate-800 ${connection.status === 'CONGESTED' ? 'text-red-400' : 'text-green-400'} border border-slate-700`}>
+                        {connection.status}
+                    </span>
+                    <span className="text-slate-500 text-xs font-mono">{connection.id}</span>
+                  </div>
+                </div>
+                <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">✕</button>
+            </div>
+
+            {/* Connection Topology Card */}
+            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-6">
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-slate-900 rounded border border-slate-700">
+                             <Server size={16} className="text-slate-400"/>
+                        </div>
+                        <div>
+                             <div className="text-xs text-slate-500 font-bold uppercase">Source</div>
+                             <div className="text-sm font-bold text-white">{sourceNode?.name || 'Unknown'}</div>
+                             <div className="text-xs text-slate-400 font-mono">{sourceNode?.ipAddress}</div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-center">
+                        <div className="h-8 w-0.5 bg-slate-700"></div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-slate-900 rounded border border-slate-700">
+                             <Wifi size={16} className="text-slate-400"/>
+                        </div>
+                        <div>
+                             <div className="text-xs text-slate-500 font-bold uppercase">Target</div>
+                             <div className="text-sm font-bold text-white">{targetNode?.name || 'Unknown'}</div>
+                             <div className="text-xs text-slate-400 font-mono">{targetNode?.ipAddress}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+             {/* Connection Latency History Chart (Uses Mock Data for now as no backend connection history endpoint provided) */}
+             <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 mb-6 flex-1 min-h-[300px] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <Clock size={14}/> Latency History
+                    </h3>
+                </div>
+
+                <div className="flex items-center justify-center h-full text-slate-600 text-sm italic">
+                    Historical data not available for passive links
+                </div>
+             </div>
+        </div>
+      );
+  }
+
+  // --- NODE VIEW ---
   if (!node) return null;
 
   // Merge static node data with live updates
@@ -113,7 +174,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
           </div>
         </div>
         <div className="flex gap-2">
-            <button onClick={() => onEdit(displayNode as NetworkNode)} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-blue-400 transition-colors">
+            <button onClick={() => onEdit(displayNode)} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-blue-400 transition-colors">
                 <Edit size={18} />
             </button>
             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">✕</button>
