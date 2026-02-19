@@ -62,7 +62,32 @@ app.post('/api/devices/detect-interfaces', async (req: any, res: any) => {
     }
 });
 
-// 3. Create Node (Provisioning)
+// 3. Test Connection (Health Check)
+app.post('/api/devices/test-connection', async (req: any, res: any) => {
+    const { ip, port, username, password, ssl } = req.body;
+
+    if (!ip || !port || !username || !password) {
+        return res.status(400).json({ success: false, error: "Missing required parameters (ip, port, user, pass)" });
+    }
+
+    const start = Date.now();
+    try {
+        const result = await MikroTikService.testConnection(
+            ip,
+            parseInt(port),
+            username,
+            password,
+            ssl || false
+        );
+        const latency = Date.now() - start;
+        res.json({ ...result, latency });
+    } catch (e: any) {
+        const latency = Date.now() - start;
+        res.status(200).json({ success: false, error: e.message, latency });
+    }
+});
+
+// 4. Create Node (Provisioning)
 app.post('/api/nodes', async (req: any, res: any) => {
     const { 
         name, ip_address, api_port, api_ssl, type, 
@@ -83,7 +108,7 @@ app.post('/api/nodes', async (req: any, res: any) => {
     }
 });
 
-// 4. Get Node History (InfluxDB)
+// 5. Get Node History (InfluxDB)
 app.get('/api/nodes/:id/history', async (req: any, res: any) => {
     const { id } = req.params;
     const range = req.query.range || '1h'; // 1h, 6h, 12h, 24h

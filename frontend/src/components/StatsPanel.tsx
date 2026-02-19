@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkNode, Connection, AIAnalysisResult, LogEntry } from '../types';
-import { Activity, Cpu, Server, AlertTriangle, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, ArrowRightLeft } from 'lucide-react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
+import { Activity, Cpu, Server, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, Clock } from 'lucide-react';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Brush } from 'recharts';
 import { analyzeNetworkNode } from '../services/geminiService';
 import { Socket } from 'socket.io-client';
 
@@ -9,7 +9,6 @@ interface StatsPanelProps {
   node: NetworkNode | null;
   connection?: Connection | null;
   allNodes: NetworkNode[];
-  history: any[]; // Deprecated, we fetch internally
   logs: LogEntry[];
   onClose: () => void;
   onEdit: (node: NetworkNode) => void;
@@ -17,10 +16,14 @@ interface StatsPanelProps {
   socket: Socket;
 }
 
+type TimeRange = '1h' | '6h' | '24h';
+const TIME_RANGES: TimeRange[] = ['1h', '6h', '24h'];
+
 const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onClose, onEdit, socket }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [chartData, setChartData] = useState<{ timestamp: string, value: number }[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('1h');
   
   // Real-time state (overrides node prop for high-frequency updates)
   const [liveMetrics, setLiveMetrics] = useState<Partial<NetworkNode>>({});
@@ -28,38 +31,50 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
   useEffect(() => {
     if (!node) return;
 
-    // 1. Subscribe to Node Room for High-Frequency Updates
+    // 1. Subscribe to Node Room for High-Frequency Updates (Live Latency)
     socket.emit('subscribe_node', node.id);
 
     const handleUpdate = (update: any) => {
         if (update.nodeId === node.id) {
             setLiveMetrics(update);
-            // Append to chart data for smooth live view
-            setChartData(prev => [...prev.slice(-29), {
-                timestamp: new Date().toLocaleTimeString(),
-                value: update.latency || 0
-            }]);
+            // Append to chart data if we are in '1h' mode for smooth live effect
+            if (timeRange === '1h') {
+                setChartData(prev => [...prev.slice(-59), {
+                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}),
+                    value: update.latency || 0
+                }]);
+            }
         }
     };
 
     socket.on('node:full_update', handleUpdate);
 
     // 2. Fetch Historical Data from InfluxDB (Backend API)
-    const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : '';
-    fetch(`${apiUrl}/api/nodes/${node.id}/history?range=1h`)
-        .then(res => res.json())
-        .then(data => {
-            // Process InfluxDB pivot data to chart format
-            // Assumes backend returns { time, field, value }
-            const latencyPoints = data
-                .filter((d: any) => d.field === 'latency')
-                .map((d: any) => ({
-                    timestamp: new Date(d.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    value: Math.round(d.value)
-                }));
-            setChartData(latencyPoints);
-        })
-        .catch(console.error);
+    const fetchHistory = () => {
+        const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : '';
+        fetch(`${apiUrl}/api/nodes/${node.id}/history?range=${timeRange}`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    // Process InfluxDB pivot data to chart format
+                    const latencyPoints = data
+                        .filter((d: any) => d.field === 'latency')
+                        .map((d: any) => ({
+                            timestamp: new Date(d.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            value: Math.round(d.value)
+                        }));
+                    setChartData(latencyPoints);
+                } else {
+                    setChartData([]);
+                }
+            })
+            .catch(err => {
+                console.error("Failed to fetch history:", err);
+                setChartData([]);
+            });
+    };
+
+    fetchHistory();
 
     return () => {
         socket.emit('unsubscribe_node', node.id);
@@ -67,7 +82,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
         setLiveMetrics({});
         setChartData([]);
     };
-  }, [node?.id]);
+  }, [node?.id, timeRange]);
 
   const handleAIAnalyze = async () => {
     if (!node) return;
@@ -98,14 +113,14 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
           </div>
         </div>
         <div className="flex gap-2">
-            <button onClick={() => onEdit(displayNode)} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-blue-400 transition-colors">
+            <button onClick={() => onEdit(displayNode as NetworkNode)} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-blue-400 transition-colors">
                 <Edit size={18} />
             </button>
             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">✕</button>
         </div>
       </div>
 
-      {/* Traffic Section */}
+      {/* Traffic Section (Real Data Only) */}
       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-4">
           <div className="flex justify-between items-center mb-3">
              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Interface Traffic</h3>
@@ -125,24 +140,45 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
 
       {/* Latency Chart */}
       <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700 mb-4 min-h-[200px] flex flex-col">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <Activity size={12}/> Latency (1H)
-        </h3>
+        <div className="flex justify-between items-center mb-2">
+             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Activity size={12}/> Latency
+            </h3>
+            <div className="flex gap-1">
+                {TIME_RANGES.map(r => (
+                    <button 
+                        key={r}
+                        onClick={() => setTimeRange(r)}
+                        className={`text-[10px] px-2 py-0.5 rounded ${timeRange === r ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+                    >
+                        {r.toUpperCase()}
+                    </button>
+                ))}
+            </div>
+        </div>
+        
         <div className="flex-1 w-full min-h-[150px]">
-            <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                    <defs>
-                        <linearGradient id="nodeLatency" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                    <XAxis dataKey="timestamp" tick={{ fill: '#64748b', fontSize: 9 }} tickLine={false} axisLine={false} minTickGap={25}/>
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} itemStyle={{ color: '#22c55e' }}/>
-                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#nodeLatency)" isAnimationActive={false} />
-                </AreaChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                        <defs>
+                            <linearGradient id="nodeLatency" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="timestamp" tick={{ fill: '#64748b', fontSize: 9 }} tickLine={false} axisLine={false} minTickGap={30}/>
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} itemStyle={{ color: '#22c55e' }}/>
+                        <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#nodeLatency)" isAnimationActive={false} />
+                        <Brush dataKey="timestamp" height={15} stroke="#334155" fill="#1e293b" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            ) : (
+                <div className="flex items-center justify-center h-full text-slate-600 text-xs italic">
+                    No history data available
+                </div>
+            )}
         </div>
       </div>
 
@@ -151,7 +187,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
         <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700">
           <div className="flex items-center gap-2 text-slate-400 mb-1 text-xs"><Cpu size={14} /> CPU Load</div>
           <div className="w-full bg-slate-700 h-2 rounded-full mt-2">
-             <div className={`h-full rounded-full ${displayNode.cpuLoad > 80 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${displayNode.cpuLoad}%` }}></div>
+             <div className={`h-full rounded-full ${displayNode.cpuLoad! > 80 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${displayNode.cpuLoad}%` }}></div>
           </div>
           <div className="text-right text-xs mt-1 text-slate-400">{displayNode.cpuLoad}%</div>
         </div>

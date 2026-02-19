@@ -4,7 +4,7 @@ import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-import { Zap, Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable } from 'lucide-react';
+import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 // Global Socket Instance
@@ -50,7 +50,7 @@ function App() {
                     cpuLoad: 0, memoryUsage: 0, voltage: 0, temperature: 0, 
                     uptime: '', txRate: 0, rxRate: 0, packetLoss: 0, activePeers: 0,
                     boardName: 'Loading...', version: '', region: 'Default',
-                    authUser: '', authPassword: '' // Don't expose creds back to UI if possible
+                    authUser: '', authPassword: ''
                 }));
                 setNodes(mappedNodes);
             }
@@ -68,6 +68,7 @@ function App() {
       socket.on('disconnect', () => setConnected(false));
 
       // 3. Listen for Dashboard Broadcasts (Map Summary)
+      // Matches backend: io.to('dashboard').emit('dashboard:update', ...)
       socket.on('dashboard:update', (updates: any[]) => {
           setNodes(prev => prev.map(node => {
               const update = updates.find(u => u.nodeId === node.id);
@@ -134,7 +135,6 @@ function App() {
     })
     .then(res => res.json())
     .then(savedNode => {
-        // Optimistic update
         const newNode = { ...node, id: savedNode.id };
         setNodes(prev => [...prev, newNode]);
         
@@ -231,11 +231,10 @@ function App() {
                 node={selectedNode} 
                 connection={selectedConnection}
                 allNodes={nodes}
-                history={[]} // StatsPanel now manages its own history fetching
                 logs={logs}
                 onClose={() => { setSelectedNodeId(null); setSelectedConnectionId(null); }}
                 onEdit={(n) => { setEditingNode(n); setShowDeviceModal(true); }}
-                socket={socket} // Pass socket for specific room subscription
+                socket={socket} 
             />
         </div>
 

@@ -76,11 +76,10 @@ export class MikroTikService {
      * Discovery Method: Get all interfaces to populate dropdowns
      */
     static async getInterfaces(ip: string, port: number, user: string, pass: string, ssl: boolean): Promise<any[]> {
-        // We create a temporary client for discovery to avoid polluting the pool with potentially bad configs
-        // or we reuse the pool logic but ensure we close if it's a one-off. 
-        // For production efficiency, we'll use the pool.
+        let client: RouterOSClientInstance | null = null;
         try {
-            const client = await this.getClient(ip, port, user, pass, ssl);
+            // Re-use pool if available, else create new
+            client = await this.getClient(ip, port, user, pass, ssl);
             const interfaces = await client.menu('/interface').get();
             return interfaces.map((iface: any) => ({
                 name: iface.name,
@@ -91,6 +90,80 @@ export class MikroTikService {
             }));
         } catch (error) {
             throw error;
+        }
+    }
+
+    /**
+     * Isolated Test Connection
+     * Does NOT use the pool. Opens a socket, checks credentials, closes socket.
+     */
+    static async testConnection(ip: string, port: number, user: string, pass: string, ssl: boolean): Promise<any> {
+        const client = new RouterOSClient({
+            host: ip,
+            port: port,
+            user: user,
+            password: pass,
+            tls: ssl ? { rejectUnauthorized: false } : undefined,
+            keepalive: false,
+            timeout: 5 // Strict 5s timeout
+        }) as unknown as RouterOSClientInstance;
+
+        // Force cleanup function
+        const destroy = () => {
+            try {
+                client.removeAllListeners();
+                client.close();
+            } catch (e) { /* ignore */ }
+        };
+
+        client.on('error', (err: any) => { /* Suppress unhandled errors during test */ });
+
+        try {
+            const connectPromise = client.connect();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Connection timeout (5s)')), 5000)
+            );
+
+            await Promise.race([connectPromise, timeoutPromise]);
+
+            // Fetch Identity and Resource to prove full access
+            const [identityRes, resourceRes] = await Promise.all([
+                client.menu('/system/identity').get(),
+                client.menu('/system/resource').get()
+            ]);
+
+            const identity = (identityRes[0] && identityRes[0].name) || 'MikroTik';
+            const resource = resourceRes[0] || {};
+
+            return {
+                success: true,
+                identity: identity,
+                version: resource.version || 'unknown',
+                boardName: resource['board-name'] || 'unknown',
+                uptime: resource.uptime || '0s'
+            };
+
+        } catch (error: any) {
+            let msg = error.message || 'Unknown Error';
+            
+            // User-friendly error mapping
+            if (msg.match(/login|authentication|failure/i)) {
+                msg = 'Authentication Failed: Invalid username or password.';
+            } else if (msg.includes('ECONNREFUSED')) {
+                msg = `Connection Refused: Port ${port} is closed or blocked by firewall.`;
+            } else if (msg.includes('ETIMEDOUT') || msg.includes('timeout')) {
+                msg = `Connection Timed Out: Device at ${ip} is not responding.`;
+            } else if (msg.includes('EHOSTUNREACH')) {
+                msg = `Host Unreachable: No route to ${ip}.`;
+            } else if (msg.includes('ENOTFOUND')) {
+                msg = `DNS Error: Could not resolve hostname "${ip}".`;
+            } else if (msg.includes('socket hang up') || msg.includes('ECONNRESET')) {
+                msg = 'Connection Reset: Device closed the connection unexpectedly.';
+            }
+
+            throw new Error(msg);
+        } finally {
+            destroy();
         }
     }
 
