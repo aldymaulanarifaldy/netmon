@@ -117,8 +117,13 @@ function App() {
   const handleSaveNode = (node: NetworkNode, uplinkId?: string) => {
     const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001/api/nodes' : '/api/nodes';
     
-    fetch(apiUrl, {
-        method: 'POST',
+    // Check if we are updating an existing node
+    const isUpdate = nodes.some(n => n.id === node.id);
+    const method = isUpdate ? 'PUT' : 'POST';
+    const url = isUpdate ? `${apiUrl}/${node.id}` : apiUrl;
+
+    fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             name: node.name,
@@ -137,21 +142,27 @@ function App() {
     })
     .then(res => res.json())
     .then(savedNode => {
-        const newNode = { ...node, id: savedNode.id };
-        setNodes(prev => [...prev, newNode]);
-        
-        if (uplinkId) {
-            setConnections(prev => [...prev, {
-                id: `conn-${Date.now()}`,
-                source: uplinkId,
-                target: newNode.id,
-                status: 'ACTIVE',
-                latency: 1,
-                direction: 'FORWARD'
-            }]);
+        if (isUpdate) {
+            // Update existing node in state
+            setNodes(prev => prev.map(n => n.id === savedNode.id ? { ...n, ...node, ...savedNode } : n));
+        } else {
+            // Add new node
+            const newNode = { ...node, id: savedNode.id };
+            setNodes(prev => [...prev, newNode]);
+            
+            if (uplinkId) {
+                setConnections(prev => [...prev, {
+                    id: `conn-${Date.now()}`,
+                    source: uplinkId,
+                    target: newNode.id,
+                    status: 'ACTIVE',
+                    latency: 1,
+                    direction: 'FORWARD'
+                }]);
+            }
         }
     })
-    .catch(err => console.error("Provision failed", err));
+    .catch(err => console.error("Provision/Update failed", err));
   };
 
   const handleNodeSelect = (nodeId: string) => {

@@ -136,6 +136,58 @@ app.post('/api/nodes', async (req: any, res: any) => {
     }
 });
 
+// 4.5 Update Node
+app.put('/api/nodes/:id', async (req: any, res: any) => {
+    const { id } = req.params;
+    const { 
+        name, ip_address, api_port, api_ssl, type, 
+        location_lat, location_lng, auth_user, auth_password, 
+        snmp_community, wan_interface, lan_interface 
+    } = req.body;
+
+    try {
+        const result = await pgPool.query(
+            `UPDATE nodes SET 
+                name = $1, ip_address = $2, api_port = $3, api_ssl = $4, type = $5, 
+                location_lat = $6, location_lng = $7, auth_user = $8, auth_password = $9, 
+                snmp_community = $10, wan_interface = $11, lan_interface = $12
+             WHERE id = $13 RETURNING *`,
+            [name, ip_address, api_port || 8728, api_ssl || false, type, location_lat, location_lng, auth_user, auth_password, snmp_community, wan_interface, lan_interface, id]
+        );
+        logger.info(`Updated Node: ${name} (${id})`);
+        res.json(result.rows[0]);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 4.6 Get Node Logs
+app.get('/api/nodes/:id/logs', async (req: any, res: any) => {
+    const { id } = req.params;
+    try {
+        // Get node credentials
+        const nodeRes = await pgPool.query('SELECT ip_address, api_port, api_ssl, auth_user, auth_password FROM nodes WHERE id = $1', [id]);
+        if (nodeRes.rows.length === 0) return res.status(404).json({ error: 'Node not found' });
+        
+        const node = nodeRes.rows[0];
+        if (!node.auth_user || !node.auth_password) {
+            return res.json([]); // No credentials, return empty logs
+        }
+
+        const logs = await MikroTikService.getLogs(
+            node.ip_address,
+            node.api_port || 8728,
+            node.auth_user,
+            node.auth_password,
+            node.api_ssl
+        );
+        res.json(logs);
+    } catch (e: any) {
+        logger.error(`Log fetch failed for node ${id}`, { error: e.message });
+        res.json([]); // Return empty on error to prevent UI crash
+    }
+});
+
 // 5. Delete Node
 app.delete('/api/nodes/:id', async (req: any, res: any) => {
     const { id } = req.params;

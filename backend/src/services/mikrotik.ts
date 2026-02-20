@@ -96,6 +96,37 @@ export class MikroTikService {
 
     /**
      * =========================
+     * GET LOGS
+     * =========================
+     */
+    static async getLogs(
+        ip: string,
+        port: number,
+        user: string,
+        pass: string,
+        ssl: boolean
+    ) {
+        let conn;
+        try {
+            conn = await this.connect(ip, port, user, pass, ssl);
+            // Fetch last 50 logs
+            const logs = await conn.write('/log/print', ['?topics=system,info', '=.proplist=time,topics,message']);
+            // Note: RouterOS API might return different fields depending on version. 
+            // Usually it returns 'time', 'topics', 'message'.
+            
+            return (logs || []).slice(-50).reverse().map((l: any) => ({
+                timestamp: l.time,
+                level: (l.topics || '').includes('error') ? 'ERROR' : (l.topics || '').includes('warning') ? 'WARN' : 'INFO',
+                message: l.message
+            }));
+
+        } finally {
+            if (conn) conn.close().catch(() => {});
+        }
+    }
+
+    /**
+     * =========================
      * FETCH METRICS
      * =========================
      */

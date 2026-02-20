@@ -28,10 +28,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
   
   // Real-time state (overrides node prop for high-frequency updates)
   const [liveMetrics, setLiveMetrics] = useState<Partial<NetworkNode>>({});
+  const [deviceLogs, setDeviceLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     // Reset chart data when selection changes
     setChartData([]);
+    setDeviceLogs([]);
     
     if (node) {
         // 1. Subscribe to Node Room
@@ -66,6 +68,16 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
                 }
             })
             .catch(err => console.error("Failed to fetch history:", err));
+
+        // 3. Fetch Device Logs
+        fetch(`${apiUrl}/api/nodes/${node.id}/logs`)
+            .then(res => res.json())
+            .then(fetchedLogs => {
+                if (Array.isArray(fetchedLogs)) {
+                    setDeviceLogs(fetchedLogs);
+                }
+            })
+            .catch(err => console.error("Failed to fetch logs:", err));
 
         return () => {
             socket.emit('unsubscribe_node', node.id);
@@ -317,11 +329,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
              />
           </div>
           <div className="max-h-32 overflow-y-auto font-mono text-[10px] space-y-1 custom-scrollbar">
-              {logs.filter(l => 
+              {deviceLogs.filter(l => 
                   l.message.toLowerCase().includes(logFilter.toLowerCase()) || 
                   l.level.toLowerCase().includes(logFilter.toLowerCase())
               ).length > 0 ? (
-                  logs.filter(l => 
+                  deviceLogs.filter(l => 
                       l.message.toLowerCase().includes(logFilter.toLowerCase()) || 
                       l.level.toLowerCase().includes(logFilter.toLowerCase())
                   ).map((log, i) => (
