@@ -146,13 +146,20 @@ app.put('/api/nodes/:id', async (req: any, res: any) => {
     } = req.body;
 
     try {
+        // Fetch existing node to preserve password if not provided
+        const existingRes = await pgPool.query('SELECT auth_password FROM nodes WHERE id = $1', [id]);
+        const existingNode = existingRes.rows[0];
+        
+        // Use new password if provided and not empty, otherwise keep existing
+        const finalPassword = (auth_password && auth_password.trim() !== '') ? auth_password : existingNode?.auth_password;
+
         const result = await pgPool.query(
             `UPDATE nodes SET 
                 name = $1, ip_address = $2, api_port = $3, api_ssl = $4, type = $5, 
                 location_lat = $6, location_lng = $7, auth_user = $8, auth_password = $9, 
                 snmp_community = $10, wan_interface = $11, lan_interface = $12
              WHERE id = $13 RETURNING *`,
-            [name, ip_address, api_port || 8728, api_ssl || false, type, location_lat, location_lng, auth_user, auth_password, snmp_community, wan_interface, lan_interface, id]
+            [name, ip_address, api_port || 8728, api_ssl || false, type, location_lat, location_lng, auth_user, finalPassword, snmp_community, wan_interface, lan_interface, id]
         );
         logger.info(`Updated Node: ${name} (${id})`);
         res.json(result.rows[0]);

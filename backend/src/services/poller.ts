@@ -16,12 +16,15 @@ const pingSession = ping.createSession({
 
 const pingHost = (ip: string): Promise<number> => {
     return new Promise((resolve) => {
-        const start = Date.now();
+        const start = process.hrtime();
         pingSession.pingHost(ip, (error: Error | null) => {
             if (error) {
                 resolve(-1); // Offline
             } else {
-                resolve(Date.now() - start);
+                const diff = process.hrtime(start);
+                // Convert to milliseconds with decimal precision
+                const ms = (diff[0] * 1000) + (diff[1] / 1e6);
+                resolve(parseFloat(ms.toFixed(2)));
             }
         });
     });

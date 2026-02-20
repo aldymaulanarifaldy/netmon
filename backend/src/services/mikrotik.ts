@@ -109,10 +109,8 @@ export class MikroTikService {
         let conn;
         try {
             conn = await this.connect(ip, port, user, pass, ssl);
-            // Fetch last 50 logs
-            const logs = await conn.write('/log/print', ['?topics=system,info', '=.proplist=time,topics,message']);
-            // Note: RouterOS API might return different fields depending on version. 
-            // Usually it returns 'time', 'topics', 'message'.
+            // Fetch last 50 logs without strict topic filtering to ensure we get data
+            const logs = await conn.write('/log/print');
             
             return (logs || []).slice(-50).reverse().map((l: any) => ({
                 timestamp: l.time,
