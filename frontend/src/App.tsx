@@ -251,7 +251,17 @@ function App() {
                 nodes={nodes}
                 connections={connections}
                 onSave={handleSaveNode} 
-                onDelete={(id) => setNodes(p => p.filter(n => n.id !== id))}
+                onDelete={(id) => {
+                    const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001/api/nodes' : '/api/nodes';
+                    fetch(`${apiUrl}/${id}`, { method: 'DELETE' })
+                        .then(() => {
+                            setNodes(p => p.filter(n => n.id !== id));
+                            setConnections(p => p.filter(c => c.source !== id && c.target !== id));
+                            setSelectedNodeId(null);
+                            setShowDeviceModal(false);
+                        })
+                        .catch(err => console.error("Delete failed", err));
+                }}
                 onClose={() => setShowDeviceModal(false)} 
             />
         )}

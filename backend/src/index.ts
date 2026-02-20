@@ -136,7 +136,19 @@ app.post('/api/nodes', async (req: any, res: any) => {
     }
 });
 
-// 5. Get Node History (InfluxDB)
+// 5. Delete Node
+app.delete('/api/nodes/:id', async (req: any, res: any) => {
+    const { id } = req.params;
+    try {
+        await pgPool.query('DELETE FROM nodes WHERE id = $1', [id]);
+        logger.info(`Deleted Node: ${id}`);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 6. Get Node History (InfluxDB)
 app.get('/api/nodes/:id/history', async (req: any, res: any) => {
     const { id } = req.params;
     const range = req.query.range || '1h'; // 1h, 6h, 12h, 24h
