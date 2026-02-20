@@ -16,6 +16,9 @@ export interface NetworkNode {
     lan_interface?: string;
     latency?: number;
     last_seen?: Date;
+    board_name?: string;
+    version?: string;
+    uptime?: string;
 }
 
 export interface NodeMetrics {
@@ -31,6 +34,8 @@ export interface NodeMetrics {
     latency: number;
     activePeers: number;
     wanInterface?: string;
+    boardName?: string;
+    version?: string;
 }
 
 export interface Alert {
