@@ -44,4 +44,5 @@ backend/Dockerfile
 
 # Temp / backup
 *.save
-*.swp
+*.swpbackend/Dockerfile
+frontend/Dockerfile
