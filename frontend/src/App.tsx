@@ -130,7 +130,9 @@ function App() {
             location_lng: node.location.lng,
             auth_user: node.authUser,
             auth_password: node.authPassword,
-            snmp_community: node.snmpCommunity
+            snmp_community: node.snmpCommunity,
+            wan_interface: node.wanInterface,
+            lan_interface: node.lanInterface
         })
     })
     .then(res => res.json())

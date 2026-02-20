@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkNode, Connection, AIAnalysisResult, LogEntry } from '../types';
-import { Activity, Cpu, Server, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, Clock, ArrowRightLeft, Wifi } from 'lucide-react';
+import { Activity, Cpu, Server, Sparkles, Thermometer, ArrowUp, ArrowDown, Zap, Edit, Clock, ArrowRightLeft, Wifi, FileText } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Brush } from 'recharts';
 import { analyzeNetworkNode } from '../services/geminiService';
 import { Socket } from 'socket.io-client';
@@ -19,11 +19,12 @@ interface StatsPanelProps {
 type TimeRange = '1h' | '6h' | '24h';
 const TIME_RANGES: TimeRange[] = ['1h', '6h', '24h'];
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onClose, onEdit, socket }) => {
+const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, logs, onClose, onEdit, socket }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [chartData, setChartData] = useState<{ timestamp: string, value: number }[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('1h');
+  const [logFilter, setLogFilter] = useState('');
   
   // Real-time state (overrides node prop for high-frequency updates)
   const [liveMetrics, setLiveMetrics] = useState<Partial<NetworkNode>>({});
@@ -181,6 +182,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
         </div>
       </div>
 
+      {/* Device Details */}
+      <div className="grid grid-cols-3 gap-2 mb-4 text-[10px] text-slate-400 bg-slate-800/30 p-2 rounded border border-slate-700/50">
+          <div><span className="font-bold text-slate-500 block">MODEL</span> {displayNode.boardName || 'Unknown'}</div>
+          <div><span className="font-bold text-slate-500 block">VERSION</span> {displayNode.version || 'Unknown'}</div>
+          <div><span className="font-bold text-slate-500 block">UPTIME</span> {displayNode.uptime || '0s'}</div>
+      </div>
+
       {/* Traffic Section (Real Data Only) */}
       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-4">
           <div className="flex justify-between items-center mb-3">
@@ -293,6 +301,41 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, onC
                 </ul>
             </div>
         )}
+      </div>
+      {/* Logs Section with Grep */}
+      <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 mb-6">
+          <div className="flex justify-between items-center mb-3">
+             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <FileText size={12}/> System Logs
+             </h3>
+             <input 
+                type="text" 
+                placeholder="grep..." 
+                value={logFilter}
+                onChange={(e) => setLogFilter(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[10px] text-white focus:border-blue-500 outline-none w-24"
+             />
+          </div>
+          <div className="max-h-32 overflow-y-auto font-mono text-[10px] space-y-1 custom-scrollbar">
+              {logs.filter(l => 
+                  l.message.toLowerCase().includes(logFilter.toLowerCase()) || 
+                  l.level.toLowerCase().includes(logFilter.toLowerCase())
+              ).length > 0 ? (
+                  logs.filter(l => 
+                      l.message.toLowerCase().includes(logFilter.toLowerCase()) || 
+                      l.level.toLowerCase().includes(logFilter.toLowerCase())
+                  ).map((log, i) => (
+                      <div key={i} className="flex gap-2 text-slate-300 border-b border-slate-800/50 pb-0.5 last:border-0">
+                          <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
+                          <span className={`${log.level === 'ERROR' ? 'text-red-400' : log.level === 'WARN' ? 'text-yellow-400' : 'text-slate-300'} break-all`}>
+                              {log.message}
+                          </span>
+                      </div>
+                  ))
+              ) : (
+                  <div className="text-slate-600 italic text-center py-2">No logs found</div>
+              )}
+          </div>
       </div>
     </div>
   );
