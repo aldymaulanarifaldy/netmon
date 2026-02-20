@@ -18,7 +18,7 @@
     "net-ping": "^1.2.4",
     "net-snmp": "^3.8.2",
     "pg": "^8.11.3",
-    "routeros-client": "^1.0.4",
+    "node-routeros": "^1.6.9",
     "socket.io": "^4.7.2"
   },
   "devDependencies": {

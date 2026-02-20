@@ -85,8 +85,8 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
             body: JSON.stringify({
                 ip: formData.ipAddress,
                 port: formData.apiPort,
-                username: formData.authUser,
-                password: formData.authPassword,
+                user: formData.authUser,
+                pass: formData.authPassword,
                 ssl: formData.apiSsl
             })
         });
@@ -137,8 +137,8 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
               body: JSON.stringify({
                   ip: formData.ipAddress,
                   port: formData.apiPort,
-                  username: formData.authUser,
-                  password: formData.authPassword,
+                  user: formData.authUser,
+                  pass: formData.authPassword,
                   ssl: formData.apiSsl
               })
           });

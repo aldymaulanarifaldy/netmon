@@ -64,26 +64,54 @@ app.post('/api/devices/detect-interfaces', async (req: any, res: any) => {
 
 // 3. Test Connection (Health Check)
 app.post('/api/devices/test-connection', async (req: any, res: any) => {
-    const { ip, port, username, password, ssl } = req.body;
+    const {
+        ip,
+        port,
+        username,
+        password,
+        user,
+        pass,
+        ssl
+    } = req.body;
 
-    if (!ip || !port || !username || !password) {
-        return res.status(400).json({ success: false, error: "Missing required parameters (ip, port, user, pass)" });
+    // Support both frontend formats
+    const finalUser = username || user;
+    const finalPass = password || pass;
+
+    if (!ip || !port || !finalUser || !finalPass) {
+        return res.status(400).json({
+            success: false,
+            error: "Missing required parameters (ip, port, user, pass)"
+        });
     }
 
     const start = Date.now();
+
     try {
         const result = await MikroTikService.testConnection(
             ip,
             parseInt(port),
-            username,
-            password,
+            finalUser,
+            finalPass,
             ssl || false
         );
+
         const latency = Date.now() - start;
-        res.json({ ...result, latency });
+
+        res.json({
+            ...result,
+            latency
+        });
+
     } catch (e: any) {
+
         const latency = Date.now() - start;
-        res.status(200).json({ success: false, error: e.message, latency });
+
+        res.status(200).json({
+            success: false,
+            error: e.message,
+            latency
+        });
     }
 });
 
