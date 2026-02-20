@@ -29,7 +29,10 @@ const influxOrg = process.env.INFLUX_ORG || 'netsentry';
 const influxBucket = process.env.INFLUX_BUCKET || 'telemetry';
 
 export const influxClient = new InfluxDB({ url: influxUrl, token: influxToken });
-export const writeApi = influxClient.getWriteApi(influxOrg, influxBucket);
+export const writeApi = influxClient.getWriteApi(influxOrg, influxBucket, 'ns', {
+    batchSize: 1, // Write immediately for real-time feedback
+    flushInterval: 1000
+});
 
 // Helper to wait for DB to be ready
 const waitForDb = async (retries = 0): Promise<boolean> => {

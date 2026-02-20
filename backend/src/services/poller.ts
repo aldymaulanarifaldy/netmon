@@ -135,7 +135,9 @@ export const startPoller = (io: any) => {
                         latency: latency >= 0 ? latency : 0,
                         // Include basic traffic for map link visualization if available
                         txRate: metrics.txRate || 0,
-                        rxRate: metrics.rxRate || 0
+                        rxRate: metrics.rxRate || 0,
+                        cpuLoad: metrics.cpuLoad || 0,
+                        memoryUsage: metrics.memoryUsage || 0
                     });
 
                     // 2. Room Update (Heavy - Emit only to subscribers)

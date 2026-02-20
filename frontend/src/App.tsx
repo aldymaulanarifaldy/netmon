@@ -83,7 +83,9 @@ function App() {
                       status: update.status as NodeStatus,
                       latency: update.latency,
                       txRate: update.txRate || node.txRate,
-                      rxRate: update.rxRate || node.rxRate
+                      rxRate: update.rxRate || node.rxRate,
+                      cpuLoad: update.cpuLoad || node.cpuLoad,
+                      memoryUsage: update.memoryUsage || node.memoryUsage
                   };
               }
               return node;
