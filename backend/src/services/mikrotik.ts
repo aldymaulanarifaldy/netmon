@@ -157,19 +157,23 @@ export class MikroTikService {
 
             if (wanInterface) {
                 try {
+                    // Ensure interface name is clean
+                    const iface = wanInterface.trim();
+                    
                     const traffic = await conn.write('/interface/monitor-traffic', [
-                        `=interface=${wanInterface}`,
+                        `=interface=${iface}`,
                         '=once='
                     ]);
 
                     const t = traffic?.[0] || {};
-                    const rxBps = parseInt(t['rx-bits-per-second'] || '0');
-                    const txBps = parseInt(t['tx-bits-per-second'] || '0');
+                    // Try multiple possible property names just in case
+                    const rxBps = parseInt(t['rx-bits-per-second'] || t['rx-bits-per-second'] || '0');
+                    const txBps = parseInt(t['tx-bits-per-second'] || t['tx-bits-per-second'] || '0');
 
                     rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
                     txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
                 } catch (err) {
-                    logger.warn(`Traffic monitor failed for ${ip}`, { err });
+                    logger.warn(`Traffic monitor failed for ${ip} (iface: ${wanInterface})`, { err });
                 }
             }
 

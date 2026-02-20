@@ -189,7 +189,7 @@ function App() {
                                 <Activity className="text-white" size={24} />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold tracking-tight">NetSentry ISP</h1>
+                                <h1 className="text-xl font-bold tracking-tight">INK Networks</h1>
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
                                     <span className="text-xs text-slate-400">{connected ? 'System Operational' : 'Connecting to Backend...'}</span>

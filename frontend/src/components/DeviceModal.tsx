@@ -70,6 +70,10 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
       if (node.wanInterface) {
           setDetectedInterfaces([{ name: node.wanInterface }]);
       }
+      // Ensure wanInterface is set in formData if it exists in node
+      if (node.wanInterface && !formData.wanInterface) {
+          setFormData(prev => ({ ...prev, wanInterface: node.wanInterface }));
+      }
     }
   }, [node]);
 
