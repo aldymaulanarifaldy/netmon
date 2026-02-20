@@ -24,6 +24,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [chartData, setChartData] = useState<{ timestamp: string, value: number }[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('1h');
+  const [trafficData, setTrafficData] = useState<{ timestamp: string, tx: number, rx: number }[]>([]);
   const [logFilter, setLogFilter] = useState('');
   
   // Real-time state (overrides node prop for high-frequency updates)
@@ -33,6 +34,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
   useEffect(() => {
     // Reset chart data when selection changes
     setChartData([]);
+    setTrafficData([]);
     setDeviceLogs([]);
     
     if (node) {
@@ -42,10 +44,21 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
         const handleUpdate = (update: any) => {
             if (update.nodeId === node.id) {
                 setLiveMetrics(update);
+                
+                const timeLabel = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                
                 if (timeRange === '1h') {
+                    // Update Latency Chart
                     setChartData(prev => [...prev.slice(-59), {
-                        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}),
+                        timestamp: timeLabel,
                         value: update.latency || 0
+                    }]);
+
+                    // Update Traffic Chart
+                    setTrafficData(prev => [...prev.slice(-59), {
+                        timestamp: timeLabel,
+                        tx: update.txRate || 0,
+                        rx: update.rxRate || 0
                     }]);
                 }
             }
@@ -58,13 +71,26 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
+                    // Process Latency
                     const latencyPoints = data
                         .filter((d: any) => d.field === 'latency')
                         .map((d: any) => ({
                             timestamp: new Date(d.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                            value: Math.round(d.value)
+                            value: parseFloat(d.value.toFixed(2)) // Keep decimal precision
                         }));
                     setChartData(latencyPoints);
+
+                    // Process Traffic
+                    const txPoints = data.filter((d: any) => d.field === 'tx_rate');
+                    const rxPoints = data.filter((d: any) => d.field === 'rx_rate');
+                    
+                    // Merge TX and RX by timestamp (assuming aligned timestamps from Influx aggregateWindow)
+                    const trafficPoints = txPoints.map((tx: any, i: number) => ({
+                        timestamp: new Date(tx.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        tx: parseFloat(tx.value.toFixed(2)),
+                        rx: parseFloat(rxPoints[i]?.value.toFixed(2) || 0)
+                    }));
+                    setTrafficData(trafficPoints);
                 }
             })
             .catch(err => console.error("Failed to fetch history:", err));
@@ -207,7 +233,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Interface Traffic</h3>
              <span className="text-[10px] text-slate-500 font-mono">{displayNode.wanInterface || 'ether1'}</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="flex flex-col">
                   <span className="text-xs text-slate-500 flex items-center gap-1"><ArrowUp size={12}/> TX</span>
                   <span className="text-xl font-mono text-blue-400">{displayNode.txRate} <span className="text-xs text-slate-600">Mbps</span></span>
@@ -216,6 +242,35 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ node, connection, allNodes, log
                   <span className="text-xs text-slate-500 flex items-center gap-1"><ArrowDown size={12}/> RX</span>
                   <span className="text-xl font-mono text-green-400">{displayNode.rxRate} <span className="text-xs text-slate-600">Mbps</span></span>
               </div>
+          </div>
+          
+          {/* Traffic History Chart */}
+          <div className="w-full h-[150px]">
+            {trafficData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trafficData}>
+                        <defs>
+                            <linearGradient id="txGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="rxGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="timestamp" tick={{ fill: '#64748b', fontSize: 9 }} tickLine={false} axisLine={false} minTickGap={30}/>
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} itemStyle={{ fontSize: '12px' }}/>
+                        <Area type="monotone" dataKey="tx" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#txGradient)" isAnimationActive={false} name="TX (Mbps)" />
+                        <Area type="monotone" dataKey="rx" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#rxGradient)" isAnimationActive={false} name="RX (Mbps)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            ) : (
+                <div className="flex items-center justify-center h-full text-slate-600 text-xs italic">
+                    Waiting for traffic data...
+                </div>
+            )}
           </div>
       </div>
 
