@@ -149,8 +149,8 @@ export const startPoller = (io: any) => {
 
                     // E. DB State Update
                     await pgPool.query(
-                        `UPDATE nodes SET status = $1, last_seen = $2 WHERE id = $3`,
-                        [status, now, node.id]
+                        `UPDATE nodes SET status = $1, last_seen = $2, board_name = $3, version = $4, uptime = $5 WHERE id = $6`,
+                        [status, now, metrics.boardName, metrics.version, metrics.uptime, node.id]
                     );
                 }));
             }

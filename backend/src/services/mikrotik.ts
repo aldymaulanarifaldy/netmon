@@ -183,6 +183,8 @@ export class MikroTikService {
                 cpuLoad: parseInt(res['cpu-load'] || '0'),
                 memoryUsage: memUsage,
                 uptime: res['uptime'] || '',
+                boardName: res['board-name'] || '',
+                version: res['version'] || '',
                 temperature: parseInt(h['temperature'] || '0'),
                 voltage: parseFloat(h['voltage'] || '0'),
                 txRate: txMbps,

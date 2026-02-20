@@ -31,7 +31,7 @@ app.use(express.json() as any);
 app.get('/api/nodes', async (req: any, res: any) => {
     try {
         const result = await pgPool.query(
-            'SELECT id, name, ip_address, api_port, api_ssl, type, location_lat, location_lng, status, wan_interface, lan_interface, last_seen, snmp_community FROM nodes ORDER BY name ASC'
+            'SELECT id, name, ip_address, api_port, api_ssl, type, location_lat, location_lng, status, wan_interface, lan_interface, last_seen, snmp_community, board_name, version, uptime FROM nodes ORDER BY name ASC'
         );
         res.json(result.rows);
     } catch (e: any) {

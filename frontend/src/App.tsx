@@ -49,9 +49,14 @@ function App() {
                     status: (n.status || 'OFFLINE') as NodeStatus,
                     latency: 0,
                     cpuLoad: 0, memoryUsage: 0, voltage: 0, temperature: 0, 
-                    uptime: '', txRate: 0, rxRate: 0, packetLoss: 0, activePeers: 0,
-                    boardName: 'Loading...', version: '', region: 'Default',
-                    authUser: '', authPassword: ''
+                    uptime: n.uptime || '', 
+                    txRate: 0, rxRate: 0, packetLoss: 0, activePeers: 0,
+                    boardName: n.board_name || 'Unknown', 
+                    version: n.version || 'Unknown', 
+                    region: 'Default',
+                    authUser: '', authPassword: '',
+                    wanInterface: n.wan_interface,
+                    lanInterface: n.lan_interface
                 }));
                 setNodes(mappedNodes);
             }

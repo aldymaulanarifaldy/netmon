@@ -101,6 +101,9 @@ export const initDB = async () => {
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'unknown'`);
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS wan_interface VARCHAR(100)`);
         await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS lan_interface VARCHAR(100)`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS board_name VARCHAR(100)`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS version VARCHAR(50)`);
+        await client.query(`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS uptime VARCHAR(50)`);
 
         await client.query('COMMIT');
         logger.info("Database initialized successfully");
