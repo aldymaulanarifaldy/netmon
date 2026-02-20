@@ -1,5 +1,0 @@
-{
-  "name": "Network Monitoring Maps",
-  "description": "A world-class real-time network monitoring dashboard featuring interactive geospatial visualization, live latency simulation, and AI-powered network analysis using the Gemini API.",
-  "requestFramePermissions": []
-}
