@@ -296,26 +296,33 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
             const isWarning = !isRTO && (sourceNode.status === NodeStatus.WARNING || targetNode.status === NodeStatus.WARNING || maxLatency > 35 || maxLoss > 0);
 
             // COLORS & STYLES
-            let healthColor = '#22c55e'; // Default Green
+            let healthColor = '#22c55e'; // Default Green (Good < 100ms)
             let packetColor = '#86efac';
             let statusClass = 'link-green';
             let packetGlowClass = 'packet-green';
-            let animSpeedClass = 'speed-normal';
+            let animSpeedClass = 'speed-fast';
             let linkWeight = viewMode === 'TRAFFIC' ? 6 : 4;
 
             if (isRTO) {
+                // Red: Offline / Loss
                 healthColor = '#ef4444';
                 packetColor = '#fca5a5';
                 statusClass = 'link-rto'; 
                 packetGlowClass = 'packet-red';
                 animSpeedClass = 'speed-stalled'; 
-            } else if (isWarning) {
+            } else if (maxLatency >= 100) {
+                // Yellow: Poor Latency (>= 100ms, 3 digits)
                 healthColor = '#eab308';
                 packetColor = '#fde047';
                 statusClass = 'link-yellow';
                 packetGlowClass = 'packet-yellow';
                 animSpeedClass = 'speed-slow';
-            } else if (maxLatency < 12) {
+            } else {
+                // Green: Good Latency (< 100ms)
+                healthColor = '#22c55e';
+                packetColor = '#86efac';
+                statusClass = 'link-green';
+                packetGlowClass = 'packet-green';
                 animSpeedClass = 'speed-fast';
             }
 
