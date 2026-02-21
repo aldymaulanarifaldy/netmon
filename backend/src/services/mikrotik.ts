@@ -160,21 +160,22 @@ export class MikroTikService {
                     // Ensure interface name is clean
                     const iface = wanInterface.trim();
                     
+                    // Use =once without trailing = for better compatibility
                     const traffic = await conn.write('/interface/monitor-traffic', [
                         `=interface=${iface}`,
-                        '=once='
+                        '=once' 
                     ]);
 
                     const t = traffic?.[0] || {};
                     
-                    // Debug log to see what we get back
-                    if (!t['rx-bits-per-second'] && !t['tx-bits-per-second']) {
-                         // logger.debug(`Traffic monitor empty response for ${ip} ${iface}`, { t });
+                    // Log raw response for debugging (will appear in backend logs)
+                    if (process.env.DEBUG_TRAFFIC) {
+                        logger.info(`Traffic raw [${ip}:${iface}]:`, t);
                     }
 
-                    // Parse with fallback to 0
-                    const rxBps = parseInt(t['rx-bits-per-second'] ?? '0');
-                    const txBps = parseInt(t['tx-bits-per-second'] ?? '0');
+                    // Parse with fallback to 0, handling both string and number types
+                    const rxBps = parseInt(String(t['rx-bits-per-second'] ?? 0));
+                    const txBps = parseInt(String(t['tx-bits-per-second'] ?? 0));
 
                     rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
                     txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
