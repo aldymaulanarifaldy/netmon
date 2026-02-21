@@ -270,10 +270,13 @@ export class MikroTikService {
             }
 
             let activePeers = 0;
+            // PPP fetch disabled temporarily to debug UNKNOWNREPLY crash on RB450Gx4
+            /*
             try {
                 const ppp = await conn.write('/ppp/active/print', ['=.proplist=.id']); // Minimal fetch
                 activePeers = ppp?.length || 0;
             } catch {}
+            */
 
             return {
                 cpuLoad: parseInt(res['cpu-load'] || '0'),
