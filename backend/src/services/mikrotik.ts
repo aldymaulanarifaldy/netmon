@@ -18,8 +18,8 @@ export class MikroTikService {
             user,
             password: pass,
             tls: ssl ? { rejectUnauthorized: false } : undefined,
-            timeout: 10, // 10s timeout
-            keepalive: false // Disable keepalive to prevent state issues
+            timeout: 20, // Increase to 20s for slower devices
+            keepalive: false
         });
 
         // Prevent connection-level errors from crashing the process
@@ -170,7 +170,9 @@ export class MikroTikService {
             // 1. Resource (Basic info)
             let res: any = {};
             try {
-                const resource = await conn.write('/system/resource/print');
+                const resource = await conn.write('/system/resource/print', [
+                    '=.proplist=total-memory,free-memory,cpu-load,uptime,board-name,version'
+                ]);
                 res = resource?.[0] || {};
             } catch (e: any) {
                 logger.warn(`Failed to fetch resource for ${ip}: ${e.message}`);
@@ -179,7 +181,9 @@ export class MikroTikService {
             // 2. Health (Optional, often fails on VM/CHR)
             let h: any = {};
             try {
-                const health = await conn.write('/system/health/print');
+                const health = await conn.write('/system/health/print', [
+                    '=.proplist=temperature,voltage'
+                ]);
                 h = health?.[0] || {};
             } catch {}
 
