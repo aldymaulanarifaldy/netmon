@@ -78,11 +78,13 @@ export class MikroTikService {
     ) {
         let conn;
         try {
+            logger.info(`Scanning interfaces for ${ip}...`);
             conn = await this.connect(ip, port, user, pass, ssl);
-            // Use .proplist to reduce payload and improve compatibility with v7
-            const interfaces = await conn.write('/interface/print', [
-                '=.proplist=name,type,running,disabled,comment'
-            ]);
+            
+            // Revert to simple print to ensure compatibility
+            const interfaces = await conn.write('/interface/print');
+            
+            logger.info(`Found ${interfaces?.length || 0} interfaces for ${ip}`);
 
             return (interfaces || []).map((iface: any) => ({
                 name: iface.name,
@@ -92,6 +94,9 @@ export class MikroTikService {
                 comment: iface.comment
             }));
 
+        } catch (error: any) {
+            logger.error(`Interface scan failed for ${ip}`, { error: error.message });
+            throw error;
         } finally {
             if (conn) conn.close().catch(() => {});
         }
