@@ -193,8 +193,11 @@ export class MikroTikService {
                     ]);
 
                     if (ifaceStats && ifaceStats.length > 0) {
-                        const currentRx = parseInt(ifaceStats[0]['rx-byte'] || '0');
-                        const currentTx = parseInt(ifaceStats[0]['tx-byte'] || '0');
+                        const rawRx = ifaceStats[0]['rx-byte'];
+                        const rawTx = ifaceStats[0]['tx-byte'];
+                        
+                        const currentRx = parseInt(rawRx || '0');
+                        const currentTx = parseInt(rawTx || '0');
                         const currentTime = Date.now();
                         const cacheKey = `${ip}:${ifaceName}`;
 
@@ -211,8 +214,12 @@ export class MikroTikService {
                                     
                                     rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
                                     txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
+                                } else {
+                                    logger.debug(`Traffic counter wrap/reset for ${ip}:${ifaceName} (prev: ${last.rx}, curr: ${currentRx})`);
                                 }
                             }
+                        } else {
+                            logger.debug(`First traffic poll for ${ip}:${ifaceName} (rx: ${currentRx}, tx: ${currentTx})`);
                         }
 
                         // Update cache
@@ -221,6 +228,8 @@ export class MikroTikService {
                             tx: currentTx,
                             time: currentTime
                         });
+                    } else {
+                        logger.warn(`No stats found for interface ${ifaceName} on ${ip}`);
                     }
 
                 } catch (err: any) {
