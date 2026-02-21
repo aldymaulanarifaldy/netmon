@@ -18,8 +18,8 @@ export class MikroTikService {
             user,
             password: pass,
             tls: ssl ? { rejectUnauthorized: false } : undefined,
-            timeout: 15, // Increase timeout to 15s
-            keepalive: true
+            timeout: 10, // 10s timeout
+            keepalive: false // Disable keepalive to prevent state issues
         });
 
         // Prevent connection-level errors from crashing the process
@@ -166,11 +166,22 @@ export class MikroTikService {
         let conn;
         try {
             conn = await this.connect(ip, port, user, pass, ssl);
-            const resource = await conn.write('/system/resource/print');
-            const health = await conn.write('/system/health/print').catch(() => []); // Health might fail on some devices
+            
+            // 1. Resource (Basic info)
+            let res: any = {};
+            try {
+                const resource = await conn.write('/system/resource/print');
+                res = resource?.[0] || {};
+            } catch (e: any) {
+                logger.warn(`Failed to fetch resource for ${ip}: ${e.message}`);
+            }
 
-            const res = resource?.[0] || {};
-            const h = health?.[0] || {};
+            // 2. Health (Optional, often fails on VM/CHR)
+            let h: any = {};
+            try {
+                const health = await conn.write('/system/health/print');
+                h = health?.[0] || {};
+            } catch {}
 
             const totalMem = parseInt(res['total-memory'] || '0');
             const freeMem = parseInt(res['free-memory'] || '0');
@@ -181,6 +192,7 @@ export class MikroTikService {
             let rxMbps = 0;
             let txMbps = 0;
 
+            // 3. Traffic (Using byte counters)
             if (wanInterface) {
                 try {
                     const ifaceName = wanInterface.trim();

@@ -78,7 +78,6 @@ export const startPoller = (io: any) => {
                         let metrics: any = {};
 
                         // A. ICMP Check (Fast)
-                        // logger.debug(`Pinging ${node.name} (${node.ip_address})...`);
                         latency = await pingHost(node.ip_address);
 
                         if (latency !== -1) {
@@ -87,14 +86,18 @@ export const startPoller = (io: any) => {
                             // B. Deep Metric Fetch (If authenticated)
                             if (node.auth_user && node.auth_password) {
                                 try {
-                                    metrics = await MikroTikService.fetchMetrics(
-                                        node.ip_address,
-                                        node.api_port || 8728,
-                                        node.auth_user,
-                                        node.auth_password,
-                                        node.api_ssl,
-                                        node.wan_interface // Pass strict WAN interface
-                                    );
+                                    // Wrap in a timeout to prevent hanging
+                                    metrics = await Promise.race([
+                                        MikroTikService.fetchMetrics(
+                                            node.ip_address,
+                                            node.api_port || 8728,
+                                            node.auth_user,
+                                            node.auth_password,
+                                            node.api_ssl,
+                                            node.wan_interface
+                                        ),
+                                        new Promise((_, reject) => setTimeout(() => reject(new Error('API Timeout')), 15000))
+                                    ]);
 
                                     // Check Thresholds
                                     await AlertService.checkThresholds(node, metrics);
