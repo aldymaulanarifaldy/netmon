@@ -41,9 +41,13 @@ app.get('/api/nodes', async (req: any, res: any) => {
 
 // 2. Detect Interfaces (Discovery)
 app.post('/api/devices/detect-interfaces', async (req: any, res: any) => {
-    const { ip, port, username, password, ssl } = req.body;
+    const { ip, port, username, password, user, pass, ssl } = req.body;
     
-    if (!ip || !username) {
+    // Support both frontend formats
+    const finalUser = username || user;
+    const finalPass = password || pass;
+
+    if (!ip || !finalUser) {
         return res.status(400).json({ error: "Missing required connection parameters" });
     }
 
@@ -51,8 +55,8 @@ app.post('/api/devices/detect-interfaces', async (req: any, res: any) => {
         const interfaces = await MikroTikService.getInterfaces(
             ip, 
             parseInt(port) || 8728, 
-            username, 
-            password, 
+            finalUser, 
+            finalPass, 
             ssl || false
         );
         res.json(interfaces);
