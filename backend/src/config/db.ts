@@ -84,6 +84,19 @@ export const initDB = async () => {
             );
         `);
 
+        // Connections Table (Topology)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS connections (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                source UUID REFERENCES nodes(id) ON DELETE CASCADE,
+                target UUID REFERENCES nodes(id) ON DELETE CASCADE,
+                type VARCHAR(50) DEFAULT 'FIBER',
+                status VARCHAR(20) DEFAULT 'ACTIVE',
+                latency FLOAT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
         // Alerts Table for Incident Management
         await client.query(`
             CREATE TABLE IF NOT EXISTS alerts (

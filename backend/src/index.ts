@@ -207,7 +207,43 @@ app.delete('/api/nodes/:id', async (req: any, res: any) => {
     }
 });
 
-// 6. Get Node History (InfluxDB)
+// 7. Get Connections
+app.get('/api/connections', async (req: any, res: any) => {
+    try {
+        const result = await pgPool.query('SELECT * FROM connections');
+        res.json(result.rows);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 8. Create Connection
+app.post('/api/connections', async (req: any, res: any) => {
+    const { source, target, type } = req.body;
+    try {
+        const result = await pgPool.query(
+            `INSERT INTO connections (source, target, type, status, latency) 
+             VALUES ($1, $2, $3, 'ACTIVE', 1) RETURNING *`,
+            [source, target, type || 'FIBER']
+        );
+        logger.info(`Created Connection: ${source} -> ${target}`);
+        res.json(result.rows[0]);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 9. Delete Connection
+app.delete('/api/connections/:id', async (req: any, res: any) => {
+    const { id } = req.params;
+    try {
+        await pgPool.query('DELETE FROM connections WHERE id = $1', [id]);
+        logger.info(`Deleted Connection: ${id}`);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 app.get('/api/nodes/:id/history', async (req: any, res: any) => {
     const { id } = req.params;
     const range = req.query.range || '1h'; // 1h, 6h, 12h, 24h

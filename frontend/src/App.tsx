@@ -63,6 +63,23 @@ function App() {
         })
         .catch(err => console.error("Failed to fetch nodes", err));
 
+      // 1.5 Fetch Connections
+      fetch(`${apiUrl}/api/connections`)
+        .then(res => res.json())
+        .then(dbConns => {
+            if (Array.isArray(dbConns)) {
+                setConnections(dbConns.map((c: any) => ({
+                    id: c.id,
+                    source: c.source,
+                    target: c.target,
+                    status: c.status,
+                    latency: c.latency,
+                    direction: 'FORWARD'
+                })));
+            }
+        })
+        .catch(err => console.error("Failed to fetch connections", err));
+
       // 2. Connect Socket
       socket = io(apiUrl);
       
@@ -158,14 +175,27 @@ function App() {
             setNodes(prev => [...prev, newNode]);
             
             if (uplinkId) {
-                setConnections(prev => [...prev, {
-                    id: `conn-${Date.now()}`,
-                    source: uplinkId,
-                    target: newNode.id,
-                    status: 'ACTIVE',
-                    latency: 1,
-                    direction: 'FORWARD'
-                }]);
+                // Persist new connection
+                fetch(apiUrl.replace('/nodes', '/connections'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source: uplinkId,
+                        target: newNode.id,
+                        type: 'FIBER'
+                    })
+                })
+                .then(res => res.json())
+                .then(newConn => {
+                    setConnections(prev => [...prev, {
+                        id: newConn.id,
+                        source: newConn.source,
+                        target: newConn.target,
+                        status: 'ACTIVE',
+                        latency: 1,
+                        direction: 'FORWARD'
+                    }]);
+                });
             }
         }
     })
@@ -247,7 +277,24 @@ function App() {
                 isLinkMode={isLinkMode}
                 onNodeSelect={handleNodeSelect}
                 onConnectionSelect={(id) => { setSelectedConnectionId(id); setSelectedNodeId(null); }}
-                onCreateConnection={(s, t) => setConnections(p => [...p, { id: `c-${Date.now()}`, source: s, target: t, status: 'ACTIVE', latency: 1 }])}
+                onCreateConnection={(s, t) => {
+                    const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001/api/connections' : '/api/connections';
+                    fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ source: s, target: t, type: 'FIBER' })
+                    })
+                    .then(res => res.json())
+                    .then(newConn => {
+                        setConnections(p => [...p, { 
+                            id: newConn.id, 
+                            source: newConn.source, 
+                            target: newConn.target, 
+                            status: 'ACTIVE', 
+                            latency: 1 
+                        }]);
+                    });
+                }}
                 onMapClick={handleMapClick}
             />
         </div>
