@@ -79,7 +79,10 @@ export class MikroTikService {
         let conn;
         try {
             conn = await this.connect(ip, port, user, pass, ssl);
-            const interfaces = await conn.write('/interface/print');
+            // Use .proplist to reduce payload and improve compatibility with v7
+            const interfaces = await conn.write('/interface/print', [
+                '=.proplist=name,type,running,disabled,comment'
+            ]);
 
             return (interfaces || []).map((iface: any) => ({
                 name: iface.name,
@@ -160,10 +163,10 @@ export class MikroTikService {
                     // Ensure interface name is clean
                     const iface = wanInterface.trim();
                     
-                    // Use =once without trailing = for better compatibility
+                    // Use =once= which is the standard boolean flag in MikroTik API
                     const traffic = await conn.write('/interface/monitor-traffic', [
                         `=interface=${iface}`,
-                        '=once' 
+                        '=once=' 
                     ]);
 
                     const t = traffic?.[0] || {};

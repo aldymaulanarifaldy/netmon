@@ -3,28 +3,24 @@ import { pgPool, writeApi } from '../config/db';
 import { MikroTikService } from './mikrotik';
 import { AlertService } from './alertService';
 import { Point } from '@influxdata/influxdb-client';
-import ping from 'net-ping';
+import { exec } from 'child_process';
 import { logger } from '../utils/logger';
 import { NetworkNode } from '../types';
 
-// Ping session configuration
-const pingSession = ping.createSession({
-    retries: 1,
-    timeout: 2000,
-    packetSize: 16
-});
-
 const pingHost = (ip: string): Promise<number> => {
     return new Promise((resolve) => {
-        const start = process.hrtime();
-        pingSession.pingHost(ip, (error: Error | null) => {
+        // Linux ping: -c 1 (count), -W 1 (timeout in seconds)
+        exec(`ping -c 1 -W 1 ${ip}`, (error, stdout, stderr) => {
             if (error) {
-                resolve(-1); // Offline
+                resolve(-1);
             } else {
-                const diff = process.hrtime(start);
-                // Convert to milliseconds with decimal precision
-                const ms = (diff[0] * 1000) + (diff[1] / 1e6);
-                resolve(parseFloat(ms.toFixed(2)));
+                // Parse output for time=... ms
+                const match = stdout.match(/time=([\d.]+)/);
+                if (match) {
+                    resolve(parseFloat(match[1]));
+                } else {
+                    resolve(-1);
+                }
             }
         });
     });
