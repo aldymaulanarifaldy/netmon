@@ -96,7 +96,7 @@ export const startPoller = (io: any) => {
                                             node.api_ssl,
                                             node.wan_interface
                                         ),
-                                        new Promise((_, reject) => setTimeout(() => reject(new Error('API Timeout')), 25000))
+                                        new Promise((_, reject) => setTimeout(() => reject(new Error('API Timeout')), 45000))
                                     ]);
 
                                     // Check Thresholds

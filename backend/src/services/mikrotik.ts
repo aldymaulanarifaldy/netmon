@@ -10,25 +10,41 @@ export class MikroTikService {
         port: number,
         user: string,
         pass: string,
-        ssl: boolean
+        ssl: boolean,
+        retries = 1
     ) {
-        const conn = new RouterOSAPI({
-            host: ip,
-            port,
-            user,
-            password: pass,
-            tls: ssl ? { rejectUnauthorized: false } : undefined,
-            timeout: 20, // Increase to 20s for slower devices
-            keepalive: false
-        });
+        let lastError;
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const conn = new RouterOSAPI({
+                    host: ip,
+                    port,
+                    user,
+                    password: pass,
+                    tls: ssl ? { rejectUnauthorized: false } : undefined,
+                    timeout: 30, // Increase to 30s
+                    keepalive: false
+                });
 
-        // Prevent connection-level errors from crashing the process
-        conn.on('error', (err: any) => {
-            logger.warn(`MikroTik connection error [${ip}]: ${err.message}`);
-        });
+                // Prevent connection-level errors from crashing the process
+                conn.on('error', (err: any) => {
+                    // Only log if we are not retrying or it's the last attempt
+                    if (i === retries) {
+                        logger.warn(`MikroTik connection error [${ip}]: ${err.message}`);
+                    }
+                });
 
-        await conn.connect();
-        return conn;
+                await conn.connect();
+                return conn;
+            } catch (err: any) {
+                lastError = err;
+                if (i < retries) {
+                    logger.debug(`Connection to ${ip} failed, retrying (${i + 1}/${retries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+                }
+            }
+        }
+        throw lastError;
     }
 
     /**
