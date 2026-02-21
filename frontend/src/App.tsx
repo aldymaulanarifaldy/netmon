@@ -169,6 +169,41 @@ function App() {
         if (isUpdate) {
             // Update existing node in state
             setNodes(prev => prev.map(n => n.id === savedNode.id ? { ...n, ...node, ...savedNode } : n));
+
+            // Handle Connection Update
+            const existingConn = connections.find(c => c.target === savedNode.id);
+            const connApiUrl = apiUrl.replace('/nodes', '/connections');
+
+            if (uplinkId) {
+                // If we have a new uplink
+                if (!existingConn) {
+                    // Create new connection
+                    fetch(connApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ source: uplinkId, target: savedNode.id, type: 'FIBER' })
+                    })
+                    .then(res => res.json())
+                    .then(newConn => setConnections(prev => [...prev, { ...newConn, status: 'ACTIVE', latency: 1 }]));
+                } else if (existingConn.source !== uplinkId) {
+                    // Delete old and create new
+                    fetch(`${connApiUrl}/${existingConn.id}`, { method: 'DELETE' })
+                    .then(() => {
+                        setConnections(prev => prev.filter(c => c.id !== existingConn.id));
+                        return fetch(connApiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ source: uplinkId, target: savedNode.id, type: 'FIBER' })
+                        });
+                    })
+                    .then(res => res.json())
+                    .then(newConn => setConnections(prev => [...prev, { ...newConn, status: 'ACTIVE', latency: 1 }]));
+                }
+            } else if (existingConn) {
+                // Remove existing connection if uplink is cleared
+                fetch(`${connApiUrl}/${existingConn.id}`, { method: 'DELETE' })
+                .then(() => setConnections(prev => prev.filter(c => c.id !== existingConn.id)));
+            }
         } else {
             // Add new node
             const newNode = { ...node, id: savedNode.id };
