@@ -22,6 +22,11 @@ export class MikroTikService {
             keepalive: true
         });
 
+        // Prevent connection-level errors from crashing the process
+        conn.on('error', (err: any) => {
+            logger.warn(`MikroTik connection error [${ip}]: ${err.message}`);
+        });
+
         await conn.connect();
         return conn;
     }
@@ -178,11 +183,11 @@ export class MikroTikService {
                     // Ensure interface name is clean
                     const iface = wanInterface.trim();
                     
-                    // Use =once= which is the standard boolean flag in MikroTik API
-                    const traffic = await conn.write('/interface/monitor-traffic', [
-                        `=interface=${iface}`,
-                        '=once=' 
-                    ]);
+                    // Use object syntax which is safer with node-routeros
+                    const traffic = await conn.write('/interface/monitor-traffic', {
+                        'interface': iface,
+                        'once': true
+                    });
 
                     const t = traffic?.[0] || {};
                     

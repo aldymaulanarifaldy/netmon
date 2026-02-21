@@ -337,4 +337,14 @@ const startServer = async () => {
     });
 };
 
+// Prevent crashes from unhandled library exceptions (like node-routeros parsing errors)
+process.on('uncaughtException', (err) => {
+    logger.error('UNCAUGHT EXCEPTION:', err);
+    // Do not exit, just log. This keeps the poller running despite library bugs.
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('UNHANDLED REJECTION:', reason);
+});
+
 startServer();
