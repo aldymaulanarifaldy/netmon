@@ -44,6 +44,7 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
 
   // Interface Detection State
   const [isDetecting, setIsDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
   const [detectedInterfaces, setDetectedInterfaces] = useState<any[]>([]);
 
   useEffect(() => {
@@ -133,6 +134,7 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
 
   const handleDetectInterfaces = async () => {
       setIsDetecting(true);
+      setDetectError(null);
       try {
           const apiUrl = window.location.origin.includes('localhost') ? 'http://localhost:3001' : '';
           const res = await fetch(`${apiUrl}/api/devices/detect-interfaces`, {
@@ -147,12 +149,18 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
               })
           });
           const data = await res.json();
+          
+          if (!res.ok) throw new Error(data.error || 'Scan failed');
+          
           if (Array.isArray(data)) {
               setDetectedInterfaces(data);
               const wan = data.find((i: any) => i.name.match(/ether1|wan|sfp/i));
               if (wan && !formData.wanInterface) setFormData(prev => ({...prev, wanInterface: wan.name}));
           }
-      } catch (e) { console.error(e); } 
+      } catch (e: any) { 
+          console.error(e); 
+          setDetectError(e.message || "Failed to scan interfaces");
+      } 
       finally { setIsDetecting(false); }
   };
 
@@ -393,12 +401,18 @@ const DeviceModal: React.FC<DeviceModalProps> = ({ node, nodes, connections, onS
                             type="button" 
                             onClick={handleDetectInterfaces}
                             disabled={isDetecting}
-                            className="text-[10px] text-indigo-400 hover:text-white flex items-center gap-1 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
+                            className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded transition-colors disabled:opacity-50 ${detectError ? 'text-red-400 hover:text-red-300' : 'text-indigo-400 hover:text-white'}`}
+                            title={detectError || "Scan Interfaces"}
                         >
                             <RefreshCw size={10} className={isDetecting ? "animate-spin" : ""}/> 
-                            {isDetecting ? 'Scanning...' : 'Scan Interfaces'}
+                            {isDetecting ? 'Scanning...' : (detectError ? 'Retry Scan' : 'Scan Interfaces')}
                         </button>
                      </div>
+                     {detectError && (
+                        <div className="text-[10px] text-red-400 mb-2 px-1">
+                            Error: {detectError}
+                        </div>
+                     )}
                      <div className="grid grid-cols-2 gap-4">
                          <div>
                              <select 

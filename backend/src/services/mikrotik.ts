@@ -17,7 +17,9 @@ export class MikroTikService {
             port,
             user,
             password: pass,
-            tls: ssl ? { rejectUnauthorized: false } : undefined
+            tls: ssl ? { rejectUnauthorized: false } : undefined,
+            timeout: 15, // Increase timeout to 15s
+            keepalive: true
         });
 
         await conn.connect();
@@ -81,8 +83,16 @@ export class MikroTikService {
             logger.info(`Scanning interfaces for ${ip}...`);
             conn = await this.connect(ip, port, user, pass, ssl);
             
-            // Revert to simple print to ensure compatibility
-            const interfaces = await conn.write('/interface/print');
+            let interfaces: any[] = [];
+            
+            try {
+                // Try optimized fetch first
+                interfaces = await conn.write('/interface/print', ['=.proplist=name,type,running,disabled,comment']);
+            } catch (pError) {
+                logger.warn(`Optimized interface scan failed for ${ip}, retrying with full print...`);
+                // Fallback to full print
+                interfaces = await conn.write('/interface/print');
+            }
             
             logger.info(`Found ${interfaces?.length || 0} interfaces for ${ip}`);
 
@@ -96,7 +106,7 @@ export class MikroTikService {
 
         } catch (error: any) {
             logger.error(`Interface scan failed for ${ip}`, { error: error.message });
-            throw error;
+            throw new Error(`Scan failed: ${error.message}`);
         } finally {
             if (conn) conn.close().catch(() => {});
         }
