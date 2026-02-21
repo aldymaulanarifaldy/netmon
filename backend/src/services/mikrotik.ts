@@ -146,6 +146,9 @@ export class MikroTikService {
         }
     }
 
+    // Cache for traffic calculation: "ip:interface" -> { rx: number, tx: number, time: number }
+    private static trafficCache = new Map<string, { rx: number, tx: number, time: number }>();
+
     /**
      * =========================
      * FETCH METRICS
@@ -180,39 +183,54 @@ export class MikroTikService {
 
             if (wanInterface) {
                 try {
-                    // Ensure interface name is clean
-                    const iface = wanInterface.trim();
+                    const ifaceName = wanInterface.trim();
                     
-                    // Use object syntax which is safer with node-routeros
-                    const traffic = await conn.write('/interface/monitor-traffic', {
-                        'interface': iface,
-                        'once': true
-                    });
+                    // Use /interface/print with stats to avoid monitor-traffic crashes
+                    // We fetch specific properties to be efficient
+                    const ifaceStats = await conn.write('/interface/print', [
+                        `?name=${ifaceName}`,
+                        '=.proplist=rx-byte,tx-byte'
+                    ]);
 
-                    const t = traffic?.[0] || {};
-                    
-                    // Log raw response for debugging (will appear in backend logs)
-                    if (process.env.DEBUG_TRAFFIC) {
-                        logger.info(`Traffic raw [${ip}:${iface}]:`, t);
+                    if (ifaceStats && ifaceStats.length > 0) {
+                        const currentRx = parseInt(ifaceStats[0]['rx-byte'] || '0');
+                        const currentTx = parseInt(ifaceStats[0]['tx-byte'] || '0');
+                        const currentTime = Date.now();
+                        const cacheKey = `${ip}:${ifaceName}`;
+
+                        const last = this.trafficCache.get(cacheKey);
+
+                        if (last) {
+                            const timeDiff = (currentTime - last.time) / 1000; // seconds
+                            if (timeDiff > 0) {
+                                // Calculate bits per second: (diff bytes * 8) / seconds
+                                // Handle counter wrap-around (simple check: if curr < prev, ignore or assume wrap)
+                                if (currentRx >= last.rx && currentTx >= last.tx) {
+                                    const rxBps = ((currentRx - last.rx) * 8) / timeDiff;
+                                    const txBps = ((currentTx - last.tx) * 8) / timeDiff;
+                                    
+                                    rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
+                                    txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
+                                }
+                            }
+                        }
+
+                        // Update cache
+                        this.trafficCache.set(cacheKey, {
+                            rx: currentRx,
+                            tx: currentTx,
+                            time: currentTime
+                        });
                     }
 
-                    // Parse with fallback to 0, handling both string and number types
-                    const rxBps = parseInt(String(t['rx-bits-per-second'] ?? 0));
-                    const txBps = parseInt(String(t['tx-bits-per-second'] ?? 0));
-
-                    rxMbps = parseFloat((rxBps / 1_000_000).toFixed(2));
-                    txMbps = parseFloat((txBps / 1_000_000).toFixed(2));
                 } catch (err: any) {
-                    // Only log if it's not a common "interface not found" to avoid spam
-                    if (!err.message?.includes('no such item')) {
-                        logger.warn(`Traffic monitor failed for ${ip} (iface: ${wanInterface})`, { error: err.message });
-                    }
+                    logger.warn(`Traffic fetch failed for ${ip} (iface: ${wanInterface})`, { error: err.message });
                 }
             }
 
             let activePeers = 0;
             try {
-                const ppp = await conn.write('/ppp/active/print');
+                const ppp = await conn.write('/ppp/active/print', ['=.proplist=.id']); // Minimal fetch
                 activePeers = ppp?.length || 0;
             } catch {}
 
@@ -230,8 +248,8 @@ export class MikroTikService {
                 wanInterface
             };
 
-        } catch (error) {
-            logger.warn(`Fetch metrics failed for ${ip}`, { error });
+        } catch (error: any) {
+            logger.warn(`Fetch metrics failed for ${ip}`, { error: error.message });
             return {};
         } finally {
             if (conn) conn.close().catch(() => {});
