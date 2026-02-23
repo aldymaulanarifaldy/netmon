@@ -117,14 +117,18 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
         center={[MAP_CENTER.lat, MAP_CENTER.lng]} 
         zoom={MAP_ZOOM} 
         style={{ 
-            height: "100%", 
-            width: "100%", 
+            height: "150vmax", 
+            width: "150vmax", 
+            position: "absolute",
+            top: "50%",
+            left: "50%",
             background: "transparent", 
             cursor: isLinkMode ? 'crosshair' : 'default',
-            transform: `rotate(${rotation}deg)`,
-            transition: 'transform 0.5s ease-out'
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+            transition: 'transform 0.5s ease-out',
+            zIndex: 0
         }}
-        className={`z-0 ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
+        className={`map-container ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
     >
       {/* ... (keep existing code) */}
 
