@@ -38,7 +38,7 @@ const getNodeColor = (status: NodeStatus) => {
     case NodeStatus.ONLINE: return '#22c55e'; // Green
     case NodeStatus.WARNING: return '#eab308'; // Yellow
     case NodeStatus.CRITICAL: return '#ef4444'; // Red
-    case NodeStatus.OFFLINE: return '#64748b'; // Grey
+    case NodeStatus.OFFLINE: return '#ef4444'; // Red (was Grey)
     default: return '#3b82f6';
   }
 };
@@ -108,15 +108,14 @@ const createCustomIcon = (node: NetworkNode, isSelected: boolean, isLinkSource: 
             <div className="text-white p-1.5">
                 <IconComponent size={isSelected || isLinkSource ? 24 : 18} />
             </div>
-            {node.status !== NodeStatus.OFFLINE && (
-                <>
-                    <span className="absolute -inset-2 rounded-full border-2 opacity-30 marker-ping pointer-events-none" style={{ borderColor: color }}></span>
-                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }}></span>
-                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 border-2 border-slate-900 shadow-sm" style={{ backgroundColor: color }}></span>
-                    </span>
-                </>
-            )}
+            {/* Status Indicators (Pulse/Ping) - Enabled for all states including OFFLINE */}
+            <>
+                <span className="absolute -inset-2 rounded-full border-2 opacity-30 marker-ping pointer-events-none" style={{ borderColor: color }}></span>
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }}></span>
+                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 border-2 border-slate-900 shadow-sm" style={{ backgroundColor: color }}></span>
+                </span>
+            </>
         </div>
         
         <div className="absolute top-full mt-2 px-2 py-0.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/50 rounded text-[10px] font-bold text-slate-100 whitespace-nowrap shadow-xl z-20 pointer-events-none">
