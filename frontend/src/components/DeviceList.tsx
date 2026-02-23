@@ -24,7 +24,7 @@ const DeviceList: React.FC<DeviceListProps> = ({ nodes, onSelect }) => {
   };
 
   return (
-    <div className="mt-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden pointer-events-auto flex flex-col w-full max-h-[calc(100vh-220px)] transition-all duration-300">
+    <div className="mt-2 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden pointer-events-auto flex flex-col w-full max-h-[calc(100vh-160px)] transition-all duration-300">
       <div className="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur flex justify-between items-center sticky top-0 z-10">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Devices ({nodes.length})</h3>
       </div>

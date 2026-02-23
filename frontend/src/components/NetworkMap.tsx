@@ -568,7 +568,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
         style={{ height: "100%", width: "100%", background: "transparent", cursor: isLinkMode ? 'crosshair' : 'default' }}
         className={`z-0 ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
     >
-      <ZoomControl position="bottomleft" />
+      <ZoomControl position="bottomright" />
       <TileLayer
         key={mapStyle}
         attribution={
