@@ -391,7 +391,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
                             weight: linkWeight,
                             opacity: isTrafficActive ? 0.6 : 0.4,
                             className: `connection-base ${statusClass}`,
-                            dashArray: (viewMode === 'TOPOLOGY' && (isWarning || isRTO)) ? '10, 10' : undefined,
+                            dashArray: (viewMode === 'TOPOLOGY' && isWarning) ? '10, 10' : undefined,
                             lineJoin: 'round'
                         }}
                         interactive={false}
