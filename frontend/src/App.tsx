@@ -3,6 +3,7 @@ import NetworkMap from './components/NetworkMap';
 import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
+import DeviceList from './components/DeviceList';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
 import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
@@ -250,7 +251,8 @@ function App() {
         <div className="flex-1 relative">
             <div className="absolute top-0 left-0 right-0 z-[1000] p-4 pointer-events-none">
                 <div className="flex justify-between items-start">
-                    <div className="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto">
+                    <div className="flex flex-col gap-2 w-80 pointer-events-none">
+                        <div className="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto w-full">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 bg-blue-600 rounded-lg">
                                 <Activity className="text-white" size={24} />
@@ -278,6 +280,8 @@ function App() {
                                 <div className="text-2xl font-mono text-red-500">{nodes.filter(n => n.status === NodeStatus.OFFLINE || n.status === NodeStatus.CRITICAL).length}</div>
                             </div>
                         </div>
+                    </div>
+                        <DeviceList nodes={nodes} onSelect={handleNodeSelect} />
                     </div>
 
                     {/* Toolbar */}
