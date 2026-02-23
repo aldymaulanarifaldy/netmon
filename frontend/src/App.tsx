@@ -4,7 +4,7 @@ import StatsPanel from './components/StatsPanel';
 import SystemDesignModal from './components/SystemDesignModal';
 import DeviceModal from './components/DeviceModal';
 import { NetworkNode, NodeStatus, LogEntry, ViewMode, Connection, MapStyle } from './types';
-import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap, Compass } from 'lucide-react';
+import { Activity, FileText, Plus, Moon, Sun, Globe, Share2, Cable, Zap } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 
 // Global Socket Instance
@@ -26,7 +26,6 @@ function App() {
   const [editingNode, setEditingNode] = useState<Partial<NetworkNode> | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('TOPOLOGY');
   const [mapStyle, setMapStyle] = useState<MapStyle>('DARK');
-  const [mapRotation, setMapRotation] = useState(0);
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [connected, setConnected] = useState(false);
 
@@ -288,27 +287,6 @@ function App() {
                             <button onClick={() => setMapStyle('LIGHT')} className={`p-2 rounded-lg ${mapStyle === 'LIGHT' ? 'bg-slate-700' : ''}`}><Sun size={18} /></button>
                             <button onClick={() => setMapStyle('SATELLITE')} className={`p-2 rounded-lg ${mapStyle === 'SATELLITE' ? 'bg-slate-700' : ''}`}><Globe size={18} /></button>
                         </div>
-                        
-                        {/* Compass Rotation */}
-                        <div className="bg-slate-900/90 backdrop-blur-md p-2 rounded-xl border border-slate-700 flex items-center gap-2 transition-all">
-                             <button 
-                                onClick={() => setMapRotation(0)}
-                                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors" 
-                                style={{ transform: `rotate(${mapRotation}deg)`, transition: 'transform 0.3s ease' }}
-                                title="Reset Rotation"
-                             >
-                                 <Compass size={18} />
-                             </button>
-                             <input 
-                                 type="range" 
-                                 min="0" 
-                                 max="360" 
-                                 value={mapRotation} 
-                                 onChange={(e) => setMapRotation(parseInt(e.target.value))}
-                                 className="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                             />
-                        </div>
-
                         <div className="flex gap-2">
                              <div className="bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 flex">
                                 <button onClick={() => setViewMode('TOPOLOGY')} className={`p-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${viewMode === 'TOPOLOGY' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}><Share2 size={16} /> Topology</button>
@@ -331,7 +309,6 @@ function App() {
                 selectedConnectionId={selectedConnectionId}
                 viewMode={viewMode}
                 mapStyle={mapStyle}
-                mapRotation={mapRotation}
                 isLinkMode={isLinkMode}
                 onNodeSelect={handleNodeSelect}
                 onConnectionSelect={(id) => { setSelectedConnectionId(id); setSelectedNodeId(null); }}
