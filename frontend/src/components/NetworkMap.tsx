@@ -255,10 +255,10 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
                 // Google Hybrid (Satellite + Labels)
                 return 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
             case 'LIGHT':
-                return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
             case 'DARK':
             default:
-                return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
         }
     }, [mapStyle]);
 
@@ -568,9 +568,13 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
         className={`z-0 ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
     >
       <TileLayer
-        attribution={mapStyle === 'SATELLITE' ? 'Tiles &copy; Google' : '&copy; OpenStreetMap contributors'}
+        key={mapStyle}
+        attribution={
+            mapStyle === 'SATELLITE' ? '&copy; Google' : 
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }
         url={tileUrl}
-        subdomains={mapStyle === 'SATELLITE' ? ['0', '1', '2', '3'] : ['a', 'b', 'c']}
+        subdomains={mapStyle === 'SATELLITE' ? ['0', '1', '2', '3'] : ['a', 'b', 'c', 'd']}
       />
       
       <MapEvents onMapClick={onMapClick} />
