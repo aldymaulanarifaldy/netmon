@@ -252,8 +252,10 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
     const tileUrl = useMemo(() => {
         switch (mapStyle) {
             case 'SATELLITE':
-                return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+                // Google Hybrid (Satellite + Labels)
+                return 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
             case 'LIGHT':
+                return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
             case 'DARK':
             default:
                 return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -566,8 +568,9 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
         className={`z-0 ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
     >
       <TileLayer
-        attribution={mapStyle === 'SATELLITE' ? 'Tiles &copy; Esri' : '&copy; OpenStreetMap contributors'}
+        attribution={mapStyle === 'SATELLITE' ? 'Tiles &copy; Google' : '&copy; OpenStreetMap contributors'}
         url={tileUrl}
+        subdomains={mapStyle === 'SATELLITE' ? ['0', '1', '2', '3'] : ['a', 'b', 'c']}
       />
       
       <MapEvents onMapClick={onMapClick} />
