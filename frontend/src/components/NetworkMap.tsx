@@ -1,6 +1,6 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { NetworkNode, Connection, NodeStatus, ViewMode, MapStyle, Coordinates } from '../types';
 import { MAP_CENTER, MAP_ZOOM } from '../constants';
@@ -25,6 +25,7 @@ interface NetworkMapProps {
   selectedConnectionId?: string | null;
   viewMode: ViewMode;
   mapStyle: MapStyle;
+  mapRotation?: number;
   isLinkMode?: boolean;
   onNodeSelect: (nodeId: string) => void;
   onConnectionSelect?: (connId: string) => void;
@@ -77,7 +78,7 @@ function pointToSegmentDistanceSq(x: number, y: number, x1: number, y1: number, 
   return dx * dx + dy * dy;
 }
 
-const createCustomIcon = (node: NetworkNode, isSelected: boolean, isLinkSource: boolean) => {
+const createCustomIcon = (node: NetworkNode, isSelected: boolean, isLinkSource: boolean, rotation: number = 0) => {
   const color = isLinkSource ? '#f59e0b' : getNodeColor(node.status); // Amber if source of link
   const size = isSelected || isLinkSource ? 'w-12 h-12' : 'w-9 h-9';
   const iconSizePx = isSelected || isLinkSource ? 48 : 36;
@@ -91,7 +92,7 @@ const createCustomIcon = (node: NetworkNode, isSelected: boolean, isLinkSource: 
   // Fallback to Router for custom types
 
   const iconHtml = renderToString(
-    <div className="relative w-full h-full flex items-center justify-center overflow-visible">
+    <div className="relative w-full h-full flex items-center justify-center overflow-visible" style={{ transform: `rotate(-${rotation}deg)`, transition: 'transform 0.3s ease' }}>
         {isSelected && !isLinkSource && (
            <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-white animate-bounce drop-shadow-[0_4px_6px_rgba(0,0,0,0.9)] z-50">
                <MapPin size={32} fill={color} className="text-white" strokeWidth={1} />
@@ -221,6 +222,17 @@ const DragHandle: React.FC<DragHandleProps> = ({
 };
 
 
+const MapRotator = ({ rotation }: { rotation: number }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (map) {
+            map.getContainer().style.transform = `rotate(${rotation}deg)`;
+            map.getContainer().style.transition = 'transform 0.3s ease';
+        }
+    }, [map, rotation]);
+    return null;
+};
+
 const NetworkMap: React.FC<NetworkMapProps> = ({ 
     nodes, 
     connections, 
@@ -228,6 +240,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
     selectedConnectionId, 
     viewMode, 
     mapStyle, 
+    mapRotation = 0,
     isLinkMode,
     onNodeSelect, 
     onConnectionSelect, 
@@ -444,7 +457,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
                         }}
                     >
                          <Tooltip sticky direction="top" opacity={1} className="!bg-transparent !border-0 !shadow-none p-0">
-                             <div className="bg-slate-900/95 backdrop-blur border border-slate-700 p-3 rounded-lg shadow-xl text-xs min-w-[140px]">
+                             <div className="bg-slate-900/95 backdrop-blur border border-slate-700 p-3 rounded-lg shadow-xl text-xs min-w-[140px]" style={{ transform: `rotate(-${mapRotation}deg)`, transition: 'transform 0.3s ease' }}>
                                 <div className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1 flex justify-between items-center">
                                     <span>Link Metrics</span>
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] ${isRTO ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
@@ -578,6 +591,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
       
       <MapEvents onMapClick={onMapClick} />
       <InteractionHandler />
+      <MapRotator rotation={mapRotation} />
 
       {/* Temporary Link Line (Dragging/Preview) */}
       {(dragLink || (isLinkMode && linkSource && dragLink)) && (
@@ -602,7 +616,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
         <Marker
           key={node.id}
           position={[node.location.lat, node.location.lng]}
-          icon={createCustomIcon(node, selectedNodeId === node.id, linkSource === node.id)}
+          icon={createCustomIcon(node, selectedNodeId === node.id, linkSource === node.id, mapRotation)}
           eventHandlers={{
             click: (e) => {
                 L.DomEvent.stopPropagation(e);
@@ -640,7 +654,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
           }}
         >
           <Tooltip direction="top" offset={[0, -20]} opacity={1} className="!bg-transparent !border-0 !shadow-none p-0">
-             <div className="bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl p-3 shadow-2xl min-w-[180px] text-slate-100">
+             <div className="bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl p-3 shadow-2xl min-w-[180px] text-slate-100" style={{ transform: `rotate(-${mapRotation}deg)`, transition: 'transform 0.3s ease' }}>
                  {/* Header */}
                  <div className="flex items-center justify-between border-b border-slate-700/50 pb-2 mb-2">
                      <div>

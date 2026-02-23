@@ -289,19 +289,24 @@ function App() {
                             <button onClick={() => setMapStyle('SATELLITE')} className={`p-2 rounded-lg ${mapStyle === 'SATELLITE' ? 'bg-slate-700' : ''}`}><Globe size={18} /></button>
                         </div>
                         
-                        <div className="bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 flex items-center gap-2 px-3">
-                            <button onClick={() => setMapRotation(0)} className="text-slate-400 hover:text-white transition-colors" title="Reset Rotation">
-                                <Compass size={18} style={{ transform: `rotate(${mapRotation}deg)`, transition: 'transform 0.5s ease-out' }} />
-                            </button>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="360" 
-                                value={mapRotation} 
-                                onChange={(e) => setMapRotation(parseInt(e.target.value))}
-                                className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                title="Rotate Map"
-                            />
+                        {/* Compass Rotation */}
+                        <div className="bg-slate-900/90 backdrop-blur-md p-2 rounded-xl border border-slate-700 flex items-center gap-2 transition-all">
+                             <button 
+                                onClick={() => setMapRotation(0)}
+                                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors" 
+                                style={{ transform: `rotate(${mapRotation}deg)`, transition: 'transform 0.3s ease' }}
+                                title="Reset Rotation"
+                             >
+                                 <Compass size={18} />
+                             </button>
+                             <input 
+                                 type="range" 
+                                 min="0" 
+                                 max="360" 
+                                 value={mapRotation} 
+                                 onChange={(e) => setMapRotation(parseInt(e.target.value))}
+                                 className="w-24 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                             />
                         </div>
 
                         <div className="flex gap-2">
@@ -326,8 +331,8 @@ function App() {
                 selectedConnectionId={selectedConnectionId}
                 viewMode={viewMode}
                 mapStyle={mapStyle}
+                mapRotation={mapRotation}
                 isLinkMode={isLinkMode}
-                rotation={mapRotation}
                 onNodeSelect={handleNodeSelect}
                 onConnectionSelect={(id) => { setSelectedConnectionId(id); setSelectedNodeId(null); }}
                 onCreateConnection={(s, t) => {
