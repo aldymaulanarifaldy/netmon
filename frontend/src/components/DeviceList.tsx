@@ -33,10 +33,10 @@ const DeviceList: React.FC<DeviceListProps> = ({ nodes, onSelect }) => {
           <div 
             key={node.id}
             onClick={() => onSelect(node.id)}
-            className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-all group border border-transparent hover:border-slate-700/50"
+            className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-all group border border-transparent hover:border-slate-700/50"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-1.5 rounded-md flex-shrink-0 ${
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`p-1 rounded-md flex-shrink-0 ${
                 node.status === NodeStatus.ONLINE ? 'bg-green-500/10 text-green-400' : 
                 node.status === NodeStatus.WARNING ? 'bg-yellow-500/10 text-yellow-400' : 
                 'bg-red-500/10 text-red-400'

@@ -251,7 +251,7 @@ function App() {
         <div className="flex-1 relative">
             <div className="absolute top-0 left-0 right-0 z-[1000] p-4 pointer-events-none">
                 <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-2 w-80 pointer-events-none">
+                    <div className="flex flex-col gap-2 w-64 pointer-events-none">
                         <div className="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-2xl pointer-events-auto w-full">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 bg-blue-600 rounded-lg">
@@ -266,18 +266,18 @@ function App() {
                             </div>
                         </div>
                         {/* Stats Counters */}
-                        <div className="flex gap-6">
+                        <div className="flex gap-4 justify-between">
                             <div>
-                                <div className="text-xs text-slate-500 uppercase font-black">Online</div>
-                                <div className="text-2xl font-mono text-green-400">{nodes.filter(n => n.status === NodeStatus.ONLINE).length}</div>
+                                <div className="text-[10px] text-slate-500 uppercase font-black">Online</div>
+                                <div className="text-xl font-mono text-green-400">{nodes.filter(n => n.status === NodeStatus.ONLINE).length}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-slate-500 uppercase font-black">Issues</div>
-                                <div className="text-2xl font-mono text-yellow-400">{nodes.filter(n => n.status === NodeStatus.WARNING).length}</div>
+                                <div className="text-[10px] text-slate-500 uppercase font-black">Issues</div>
+                                <div className="text-xl font-mono text-yellow-400">{nodes.filter(n => n.status === NodeStatus.WARNING).length}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-slate-500 uppercase font-black">Offline</div>
-                                <div className="text-2xl font-mono text-red-500">{nodes.filter(n => n.status === NodeStatus.OFFLINE || n.status === NodeStatus.CRITICAL).length}</div>
+                                <div className="text-[10px] text-slate-500 uppercase font-black">Offline</div>
+                                <div className="text-xl font-mono text-red-500">{nodes.filter(n => n.status === NodeStatus.OFFLINE || n.status === NodeStatus.CRITICAL).length}</div>
                             </div>
                         </div>
                     </div>

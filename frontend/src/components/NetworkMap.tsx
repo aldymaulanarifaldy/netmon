@@ -1,6 +1,6 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { NetworkNode, Connection, NodeStatus, ViewMode, MapStyle, Coordinates } from '../types';
 import { MAP_CENTER, MAP_ZOOM } from '../constants';
@@ -564,9 +564,11 @@ const NetworkMap: React.FC<NetworkMapProps> = ({
     <MapContainer 
         center={[MAP_CENTER.lat, MAP_CENTER.lng]} 
         zoom={MAP_ZOOM} 
+        zoomControl={false}
         style={{ height: "100%", width: "100%", background: "transparent", cursor: isLinkMode ? 'crosshair' : 'default' }}
         className={`z-0 ${mapStyle === 'DARK' ? 'map-dark' : ''}`}
     >
+      <ZoomControl position="bottomleft" />
       <TileLayer
         key={mapStyle}
         attribution={
